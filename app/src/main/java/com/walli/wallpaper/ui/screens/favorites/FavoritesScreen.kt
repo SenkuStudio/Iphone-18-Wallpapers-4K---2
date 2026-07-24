@@ -31,6 +31,7 @@ import com.walli.wallpaper.ui.components.WallpaperCardShimmer
 @Composable
 fun FavoritesRoute(
     onOpenPreview: () -> Unit,
+    onExplore: () -> Unit,
     sharedTransitionScope: SharedTransitionScope,
     animatedVisibilityScope: AnimatedVisibilityScope,
     viewModel: FavoritesViewModel = hiltViewModel(),
@@ -83,7 +84,7 @@ fun FavoritesRoute(
                             title = "No favorites yet",
                             subtitle = "Explore our collection and save the ones you love!",
                             actionText = "Explore Wallpapers",
-                            onAction = { /* Navigate to Home - handled by BottomBar */ }
+                            onAction = onExplore
                         )
                     }
                 }

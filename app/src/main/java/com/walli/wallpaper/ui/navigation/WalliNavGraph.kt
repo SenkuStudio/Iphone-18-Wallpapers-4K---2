@@ -107,6 +107,11 @@ fun WalliNavGraph(
                 composable(WalliRoute.Favorites.route) {
                     FavoritesRoute(
                         onOpenPreview = { navController.navigate(WalliRoute.Preview.route) },
+                        onExplore = {
+                            navController.navigate(WalliRoute.Home.route) {
+                                popUpTo(WalliRoute.Home.route) { inclusive = true }
+                            }
+                        },
                         sharedTransitionScope = this@SharedTransitionLayout,
                         animatedVisibilityScope = this@composable
                     )
