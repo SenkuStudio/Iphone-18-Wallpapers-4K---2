@@ -15,8 +15,8 @@ android {
         applicationId = "com.walli.wallpaper"
         minSdk = 24
         targetSdk = 36
-        versionCode = 4
-        versionName = "4.0.0"
+        versionCode = 5
+        versionName = "5.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = true
@@ -41,15 +41,17 @@ android {
         // Interstitial IDs
         buildConfigField("String", "ADMOB_INTERSTITIAL_HOME", "\"${localProperties.getProperty("ADMOB_INTERSTITIAL_HOME") ?: ""}\"")
         buildConfigField("String", "ADMOB_INTERSTITIAL_CATEGORY", "\"${localProperties.getProperty("ADMOB_INTERSTITIAL_CATEGORY") ?: ""}\"")
-        buildConfigField("String", "ADMOB_INTERSTITIAL_DOWNLOAD", "\"${localProperties.getProperty("ADMOB_INTERSTITIAL_DOWNLOAD") ?: ""}\"")
 
         // Rewarded IDs
         buildConfigField("String", "ADMOB_REWARDED_HOME", "\"${localProperties.getProperty("ADMOB_REWARDED_HOME") ?: ""}\"")
         buildConfigField("String", "ADMOB_REWARDED_CATEGORY", "\"${localProperties.getProperty("ADMOB_REWARDED_CATEGORY") ?: ""}\"")
         buildConfigField("String", "ADMOB_REWARDED_PREVIEW", "\"${localProperties.getProperty("ADMOB_REWARDED_PREVIEW") ?: ""}\"")
+        buildConfigField("String", "ADMOB_REWARDED_DOWNLOAD", "\"${localProperties.getProperty("ADMOB_REWARDED_DOWNLOAD") ?: ""}\"")
 
         // Native IDs
         buildConfigField("String", "ADMOB_NATIVE_HOME", "\"${localProperties.getProperty("ADMOB_NATIVE_HOME") ?: ""}\"")
+        buildConfigField("String", "ADMOB_NATIVE_CATEGORIES", "\"${localProperties.getProperty("ADMOB_NATIVE_CATEGORIES") ?: ""}\"")
+        buildConfigField("String", "ADMOB_NATIVE_WALLPAPERS", "\"${localProperties.getProperty("ADMOB_NATIVE_WALLPAPERS") ?: ""}\"")
     }
 
     buildTypes {

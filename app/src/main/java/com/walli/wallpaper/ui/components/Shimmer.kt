@@ -4,6 +4,7 @@ import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
@@ -19,15 +20,18 @@ import androidx.compose.ui.unit.dp
  */
 @Composable
 fun rememberShimmerBrush(
-    targetValue: Float = 1000f,
-    durationMillis: Int = 1200,
-    shimmerColors: List<Color> = listOf(
-        Color.White.copy(alpha = 0.05f),
-        Color.White.copy(alpha = 0.2f),
-        Color.White.copy(alpha = 0.05f),
-    )
+    targetValue: Float = 1500f,
+    durationMillis: Int = 1000,
+    shimmerColors: List<Color>? = null
 ): Brush {
     val transition = rememberInfiniteTransition(label = "shimmer")
+    
+    val colors = shimmerColors ?: listOf(
+        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f),
+        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
+        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f),
+    )
+
     val translateAnim by transition.animateFloat(
         initialValue = 0f,
         targetValue = targetValue,
@@ -39,7 +43,7 @@ fun rememberShimmerBrush(
     )
 
     return Brush.linearGradient(
-        colors = shimmerColors,
+        colors = colors,
         start = Offset.Zero,
         end = Offset(x = translateAnim, y = translateAnim)
     )
@@ -51,13 +55,7 @@ fun rememberShimmerBrush(
 fun Modifier.shimmerEffect(
     shape: RoundedCornerShape = RoundedCornerShape(0.dp)
 ): Modifier = composed {
-    val brush = rememberShimmerBrush(
-        shimmerColors = listOf(
-            Color.LightGray.copy(alpha = 0.3f),
-            Color.LightGray.copy(alpha = 0.5f),
-            Color.LightGray.copy(alpha = 0.3f),
-        )
-    )
+    val brush = rememberShimmerBrush()
     this.clip(shape).background(brush)
 }
 

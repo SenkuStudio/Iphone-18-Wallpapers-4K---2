@@ -406,8 +406,8 @@ private fun HomeScreen(
                                             )
                                         }
 
-                                        // Insert Native Ad every 10 items
-                                        if (index > 0 && (index + 1) % 10 == 0) {
+                                        // Insert Native Ad every 6 items
+                                        if (index > 0 && (index + 1) % 6 == 0) {
                                             item(
                                                 key = "native-ad-${index}",
                                                 span = { GridItemSpan(maxLineSpan) },
@@ -415,6 +415,7 @@ private fun HomeScreen(
                                             ) {
                                                 NativeAdItem(
                                                     adUnitId = BuildConfig.ADMOB_NATIVE_HOME,
+                                                    key = "home-grid-ad-$index",
                                                     modifier = Modifier.padding(vertical = 8.dp)
                                                 )
                                             }
@@ -466,7 +467,7 @@ private fun HomeTopBar(onMenuClick: () -> Unit) {
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = "Krishna Wallpaper 4k",
+                    text = "Krishna Wallpaper 4K",
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.ExtraBold,
                 )
@@ -503,7 +504,7 @@ private fun DrawerContent(onItemClick: (DrawerItem) -> Unit) {
                 )
                 Spacer(modifier = Modifier.height(12.dp))
                 Text(
-                    text = "Krishna Wallpaper 4k",
+                    text = "Krishna Wallpaper 4K",
                     style = MaterialTheme.typography.headlineMedium,
                     fontWeight = FontWeight.ExtraBold
                 )
@@ -534,13 +535,13 @@ private fun DrawerContent(onItemClick: (DrawerItem) -> Unit) {
 private fun handleDrawerAction(context: android.content.Context, item: DrawerItem) {
     when (item) {
         DrawerItem.HowToUse -> {
-            Toast.makeText(context, "Welcome to Krishna Wallpaper 4k! Swipe to explore and tap to preview wallpapers.", Toast.LENGTH_LONG).show()
+            Toast.makeText(context, "Welcome to Krishna Wallpaper 4K! Swipe to explore and tap to preview wallpapers.", Toast.LENGTH_LONG).show()
         }
         DrawerItem.ShareApp -> {
             val intent = Intent(Intent.ACTION_SEND).apply {
                 type = "text/plain"
-                putExtra(Intent.EXTRA_SUBJECT, "Check out Krishna Wallpaper 4k App")
-                putExtra(Intent.EXTRA_TEXT, "Download Krishna Wallpaper 4k for amazing wallpapers: https://play.google.com/store/apps/details?id=com.walli.wallpaper")
+                putExtra(Intent.EXTRA_SUBJECT, "Check out Krishna Wallpaper 4K App")
+                putExtra(Intent.EXTRA_TEXT, "Download Krishna Wallpaper 4K for amazing wallpapers: https://play.google.com/store/apps/details?id=com.walli.wallpaper")
             }
             context.startActivity(Intent.createChooser(intent, "Share via"))
         }
@@ -557,7 +558,7 @@ private fun handleDrawerAction(context: android.content.Context, item: DrawerIte
         DrawerItem.ContactUs -> {
             val intent = Intent(Intent.ACTION_SENDTO).apply {
                 data = Uri.parse("mailto:skstudioapp7@gmail.com")
-                putExtra(Intent.EXTRA_SUBJECT, "Krishna Wallpaper 4k Feedback")
+                putExtra(Intent.EXTRA_SUBJECT, "Krishna Wallpaper 4K Feedback")
             }
             try {
                 context.startActivity(intent)

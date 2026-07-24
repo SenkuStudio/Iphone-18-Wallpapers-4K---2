@@ -735,12 +735,13 @@ fun PreviewRoute(
                                         if (current.isPremium && !current.isUnlocked) {
                                             viewModel.requestUnlock(actualPage)
                                         } else {
-                                            if (current.isPremium) {
-                                                // Already unlocked, no second rewarded ad needed
-                                                action()
-                                            } else {
-                                                adsViewModel.maybeShowDownloadInterstitial(activity, action)
-                                            }
+                                            adsViewModel.showDownloadRewarded(
+                                                activity = activity,
+                                                onReward = action,
+                                                onError = { message ->
+                                                    android.widget.Toast.makeText(context, message, android.widget.Toast.LENGTH_LONG).show()
+                                                }
+                                            )
                                         }
                                     },
                                     modifier = Modifier.weight(1f, fill = showLabels),

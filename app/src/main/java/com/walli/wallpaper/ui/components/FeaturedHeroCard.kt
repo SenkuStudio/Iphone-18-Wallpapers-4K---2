@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Star
@@ -211,27 +212,34 @@ fun FeaturedHeroCard(
                     }
                 }
             }
-            Column(
+            Row(
                 modifier = Modifier
                     .align(Alignment.BottomStart)
                     .padding(24.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                Text(
-                    text = wallpaper.title,
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = Color.White,
-                )
-                Row(modifier = Modifier.padding(top = 4.dp)) {
-                    Surface(
-                        color = Color.White.copy(alpha = 0.2f),
-                        shape = RoundedCornerShape(8.dp)
+                Surface(
+                    color = Color.Black.copy(alpha = 0.3f),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
                     ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Download,
+                            contentDescription = null,
+                            tint = Color.White.copy(alpha = 0.95f),
+                            modifier = Modifier.size(16.dp),
+                        )
+                        Spacer(modifier = Modifier.size(6.dp))
                         Text(
-                            text = wallpaper.category,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = Color.White,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                            text = wallpaper.downloads.toString(),
+                            style = MaterialTheme.typography.labelLarge,
+                            color = Color.White.copy(alpha = 0.95f),
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1
                         )
                     }
                 }

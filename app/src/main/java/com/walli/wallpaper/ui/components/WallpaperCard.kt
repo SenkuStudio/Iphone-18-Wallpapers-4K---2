@@ -155,48 +155,35 @@ fun WallpaperCard(
                     ),
             )
 
-            Column(
+            Row(
                 modifier = Modifier
                     .align(Alignment.BottomStart)
-                    .fillMaxWidth()
                     .padding(12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                Text(
-                    text = wallpaper.category,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                Row(
-                    modifier = Modifier.padding(top = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                Surface(
+                    color = Color.Black.copy(alpha = 0.3f),
+                    shape = RoundedCornerShape(8.dp)
                 ) {
-                    Surface(
-                        color = Color.Black.copy(alpha = 0.3f),
-                        shape = RoundedCornerShape(8.dp)
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                     ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Rounded.Download,
-                                contentDescription = null,
-                                tint = Color.White.copy(alpha = 0.95f),
-                                modifier = Modifier.size(12.dp),
-                            )
-                            Spacer(modifier = Modifier.size(4.dp))
-                            Text(
-                                text = wallpaper.downloads.toString(),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = Color.White.copy(alpha = 0.95f),
-                                fontWeight = FontWeight.Medium,
-                                maxLines = 1
-                            )
-                        }
+                        Icon(
+                            imageVector = Icons.Rounded.Download,
+                            contentDescription = null,
+                            tint = Color.White.copy(alpha = 0.95f),
+                            modifier = Modifier.size(12.dp),
+                        )
+                        Spacer(modifier = Modifier.size(4.dp))
+                        Text(
+                            text = wallpaper.downloads.toString(),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Color.White.copy(alpha = 0.95f),
+                            fontWeight = FontWeight.Medium,
+                            maxLines = 1
+                        )
                     }
                 }
             }

@@ -80,7 +80,7 @@ fun CategoryWallpapersRoute(
             CenterAlignedTopAppBar(
                 title = {
                     Text(
-                        text = "Krishna Wallpaper 4k",
+                        text = "Krishna Wallpaper 4K",
                         style = MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.ExtraBold,
                     )
@@ -189,15 +189,35 @@ private fun CategoryWallpapersScreen(
                     )
                 }
             } else {
-                itemsIndexed(state.wallpapers, key = { _, item -> item.id }) { index, wallpaper ->
-                    WallpaperCard(
-                        wallpaper = wallpaper,
-                        isFavorite = state.favoriteIds.contains(wallpaper.id),
-                        isUnlocked = state.unlockedIds.contains(wallpaper.id),
-                        onClick = { onWallpaperClick(index) },
-                        sharedTransitionScope = sharedTransitionScope,
-                        animatedVisibilityScope = animatedVisibilityScope
-                    )
+                state.wallpapers.forEachIndexed { index, wallpaper ->
+                    item(
+                        key = wallpaper.id,
+                        contentType = "wallpaper"
+                    ) {
+                        WallpaperCard(
+                            wallpaper = wallpaper,
+                            isFavorite = state.favoriteIds.contains(wallpaper.id),
+                            isUnlocked = state.unlockedIds.contains(wallpaper.id),
+                            onClick = { onWallpaperClick(index) },
+                            sharedTransitionScope = sharedTransitionScope,
+                            animatedVisibilityScope = animatedVisibilityScope
+                        )
+                    }
+
+                    // Insert Native Ad every 6 items
+                    if (index > 0 && (index + 1) % 6 == 0) {
+                        item(
+                            key = "native-ad-${index}",
+                            span = { GridItemSpan(maxLineSpan) },
+                            contentType = "native_ad"
+                        ) {
+                            com.walli.wallpaper.ui.components.NativeAdItem(
+                                adUnitId = BuildConfig.ADMOB_NATIVE_WALLPAPERS,
+                                key = "cat-wallpapers-ad-$index",
+                                modifier = Modifier.padding(vertical = 8.dp)
+                            )
+                        }
+                    }
                 }
 
                 if (state.loadState is LoadState.Appending) {

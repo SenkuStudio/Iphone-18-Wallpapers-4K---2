@@ -37,12 +37,14 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.SubcomposeAsyncImage
 import com.walli.wallpaper.BuildConfig
+import com.walli.wallpaper.ads.AdsViewModel
 import com.walli.wallpaper.domain.model.WallpaperCategory
 import com.walli.wallpaper.ui.common.LoadState
 import com.walli.wallpaper.ui.components.BannerAd
 import com.walli.wallpaper.ui.components.EmptyState
 import com.walli.wallpaper.ui.components.NoInternetState
 import com.walli.wallpaper.ui.components.rememberShimmerBrush
+import com.walli.wallpaper.util.findActivity
 
 @OptIn(androidx.compose.animation.ExperimentalSharedTransitionApi::class, ExperimentalMaterial3Api::class)
 @Composable
@@ -51,15 +53,18 @@ fun CategoriesRoute(
     sharedTransitionScope: SharedTransitionScope,
     animatedVisibilityScope: AnimatedVisibilityScope,
     viewModel: CategoriesViewModel = hiltViewModel(),
+    adsViewModel: AdsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val activity = context.findActivity()
     
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
                 title = {
                     Text(
-                        text = "Krishna Wallpaper 4k",
+                        text = "Krishna Wallpaper 4K",
                         style = MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.ExtraBold,
                     )
@@ -108,13 +113,34 @@ fun CategoriesRoute(
                     horizontalArrangement = Arrangement.spacedBy(16.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
-                    items(state.categories) { category ->
-                        val fallbackCover = state.categories.firstOrNull { it.coverUrl != null }?.coverUrl
-                        CategoryCard(
-                            name = category.name ?: "",
-                            coverUrl = category.coverUrl ?: fallbackCover,
-                            onClick = { onCategoryClick(category) }
-                        )
+                    state.categories.forEachIndexed { index, category ->
+                        item(key = category.id) {
+                            val fallbackCover = state.categories.firstOrNull { it.coverUrl != null }?.coverUrl
+                            CategoryCard(
+                                name = category.name ?: "",
+                                coverUrl = category.coverUrl ?: fallbackCover,
+                                onClick = {
+                                    adsViewModel.maybeShowCategoryInterstitial(activity) {
+                                        onCategoryClick(category)
+                                    }
+                                }
+                            )
+                        }
+
+                        // Insert Native Ad every 2 categories
+                        if (index > 0 && (index + 1) % 2 == 0) {
+                            item(
+                                key = "native-ad-cat-${index}",
+                                span = { GridItemSpan(maxLineSpan) },
+                                contentType = "native_ad"
+                            ) {
+                                com.walli.wallpaper.ui.components.NativeAdItem(
+                                    adUnitId = BuildConfig.ADMOB_NATIVE_CATEGORIES,
+                                    key = "cat-grid-ad-$index",
+                                    modifier = Modifier.padding(vertical = 8.dp)
+                                )
+                            }
+                        }
                     }
 
                     item(span = { GridItemSpan(maxLineSpan) }) {

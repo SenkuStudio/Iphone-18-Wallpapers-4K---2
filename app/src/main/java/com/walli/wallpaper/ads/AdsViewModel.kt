@@ -38,10 +38,6 @@ class AdsViewModel @Inject constructor(
         adMobManager.maybeShowCategoryInterstitial(activity, onContinue)
     }
 
-    fun maybeShowDownloadInterstitial(activity: Activity?, onContinue: () -> Unit) {
-        adMobManager.maybeShowDownloadInterstitial(activity, onContinue)
-    }
-
     fun showHomeRewarded(
         activity: Activity?,
         onReward: () -> Unit,
@@ -68,4 +64,15 @@ class AdsViewModel @Inject constructor(
     ) {
         adMobManager.showPreviewRewarded(activity, onReward, onDismiss, onError)
     }
+
+    fun showDownloadRewarded(
+        activity: Activity?,
+        onReward: () -> Unit,
+        onDismiss: () -> Unit = {},
+        onError: (String) -> Unit = {}
+    ) {
+        adMobManager.showDownloadRewarded(activity, onReward, onDismiss, onError)
+    }
+
+    fun getNativeAd(adUnitId: String, key: String? = null) = adMobManager.getNativeAd(adUnitId, key)
 }

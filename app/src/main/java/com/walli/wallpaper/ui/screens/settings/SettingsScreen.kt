@@ -80,7 +80,7 @@ fun SettingsScreen(
             CenterAlignedTopAppBar(
                 title = { 
                     Text(
-                        "Krishna Wallpaper 4k",
+                        "Krishna Wallpaper 4K",
                         style = MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.ExtraBold
                     ) 
@@ -192,7 +192,7 @@ fun SettingsScreen(
                 onClick = {
                     val intent = Intent(Intent.ACTION_SEND).apply {
                         type = "text/plain"
-                        putExtra(Intent.EXTRA_TEXT, "Check out Krishna Wallpaper 4k: https://play.google.com/store/apps/details?id=com.walli.wallpaper")
+                        putExtra(Intent.EXTRA_TEXT, "Check out Krishna Wallpaper 4K: https://play.google.com/store/apps/details?id=com.walli.wallpaper")
                     }
                     context.startActivity(Intent.createChooser(intent, "Share via"))
                 }
@@ -205,7 +205,7 @@ fun SettingsScreen(
                 onClick = {
                     val intent = Intent(Intent.ACTION_SENDTO).apply {
                         data = Uri.parse("mailto:skstudioapp7@gmail.com")
-                        putExtra(Intent.EXTRA_SUBJECT, "Krishna Wallpaper 4k Feedback")
+                        putExtra(Intent.EXTRA_SUBJECT, "Krishna Wallpaper 4K Feedback")
                     }
                     context.startActivity(Intent.createChooser(intent, "Send email..."))
                 }
@@ -250,7 +250,7 @@ fun SettingsScreen(
                     }
                     Spacer(modifier = Modifier.height(16.dp))
                     Text(
-                        "Krishna Wallpaper 4k",
+                        "Krishna Wallpaper 4K",
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.ExtraBold
                     )
