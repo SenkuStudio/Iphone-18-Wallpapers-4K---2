@@ -67,6 +67,8 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.material.icons.rounded.Warning
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -298,11 +300,15 @@ fun PreviewRoute(
                 onRetry = null // Network monitor handles it
             )
         } else {
+            val currentTransformation = state.transformations[pagerState.currentPage % state.items.size] ?: ImageTransformation()
+            val userScrollEnabled = currentTransformation.scale <= 1f && currentTransformation.offset == Offset.Zero
+
             HorizontalPager(
                 state = pagerState,
                 beyondViewportPageCount = 1,
+                pageSpacing = 16.dp,
                 modifier = Modifier.fillMaxSize(),
-                userScrollEnabled = (state.transformations[pagerState.currentPage % state.items.size]?.scale ?: 1f) <= 1f,
+                userScrollEnabled = userScrollEnabled,
                 key = { page -> state.items.getOrNull(page % state.items.size)?.id ?: page }
             ) { page ->
                 if (state.items.isEmpty()) return@HorizontalPager
@@ -315,16 +321,29 @@ fun PreviewRoute(
 
                 val transformation = state.transformations[actualPage] ?: ImageTransformation()
                 val currentTransformationState = rememberUpdatedState(transformation)
-
+                
                 val placeholder = remember(wallpaper.blurHash) {
                     wallpaper.blurHash?.let {
                         BlurhashDecoder.decode(it, 4, 6)?.asImageBitmap()
                     }
                 }
 
+                // Calculate the scale needed to go from 'Fit' to 'Fill' (Crop)
+                // We use the placeholder's aspect ratio to get an immediate estimate to avoid jumping
+                val metrics = LocalContext.current.resources.displayMetrics
+                var baseScaleFill by remember(wallpaper.id) {
+                    val initialScale = if (placeholder != null) {
+                        val scaleX = metrics.widthPixels.toFloat() / placeholder.width
+                        val scaleY = metrics.heightPixels.toFloat() / placeholder.height
+                        maxOf(scaleX, scaleY) / minOf(scaleX, scaleY)
+                    } else 1f
+                    mutableStateOf(initialScale)
+                }
+
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
+                        .clipToBounds()
                         .background(Color.Black)
                         .pointerInput(actualPage, isLocked) {
                             detectTapGestures(
@@ -350,17 +369,15 @@ fun PreviewRoute(
                             if (!isLoaded || isLocked) return@pointerInput
                             detectTransformGestures(panZoomLock = false) { centroid, pan, zoom, rotation ->
                                 val current = currentTransformationState.value
-                                val newScale = (current.scale * zoom).coerceIn(0.5f, 5f)
+                                // Allow zooming out significantly to see the full image
+                                val minAllowedScale = minOf(0.5f, 1f / baseScaleFill)
+                                val newScale = (current.scale * zoom).coerceIn(minAllowedScale, 5f)
                                 
-                                val newOffset = if (newScale > 1f) {
-                                    // Calculate center-zoom offset adjustment
-                                    val pivot = centroid - Offset(size.width / 2f, size.height / 2f)
-                                    val scaleChange = newScale / current.scale
-                                    val zoomOffset = (current.offset - pivot) * scaleChange + pivot - current.offset
-                                    current.offset + pan + zoomOffset
-                                } else {
-                                    Offset.Zero
-                                }
+                                // Calculate center-zoom offset adjustment
+                                val pivot = centroid - Offset(size.width / 2f, size.height / 2f)
+                                val scaleChange = newScale / current.scale
+                                val zoomOffset = (current.offset - pivot) * scaleChange + pivot - current.offset
+                                val newOffset = current.offset + pan + zoomOffset
                                 
                                 viewModel.updateTransformation(
                                     actualPage,
@@ -373,8 +390,11 @@ fun PreviewRoute(
                 ) {
                     val imageModifier = Modifier
                         .fillMaxSize()
+                        .then(if (isLocked) Modifier.blur(40.dp) else Modifier)
                         .graphicsLayer {
-                            val currentScale = if (isLoaded && !isLocked) transformation.scale else 1f
+                            // Scale 1.0 in ViewModel = "Fill Screen" (Crop look)
+                            // We multiply by baseScaleFill to convert from 'Fit' to 'Fill'
+                            val currentScale = if (isLoaded || placeholder != null) (transformation.scale * baseScaleFill) else 1f
                             val currentOffset = if (isLoaded && !isLocked) transformation.offset else Offset.Zero
                             val currentRotation = if (isLoaded && !isLocked) transformation.rotation else 0f
                             
@@ -383,8 +403,10 @@ fun PreviewRoute(
                             translationX = currentOffset.x
                             translationY = currentOffset.y
                             rotationZ = currentRotation
+                            
+                            // Explicitly clip to the node's bounds to prevent overlapping during zoom/pan
+                            clip = true
                         }
-                        .then(if (isLocked) Modifier.blur(40.dp) else Modifier)
 
                     val sharedImageModifier = if (page == state.initialIndex) {
                         with(sharedTransitionScope) {
@@ -395,6 +417,26 @@ fun PreviewRoute(
                         }
                     } else {
                         imageModifier
+                    }
+
+                    // 1. Background Layer (Blurred & Cropped to fill screen)
+                    // This provides a nice backdrop when the main image is in 'Fit' mode or zoomed out
+                    if (!isLocked) {
+                        coil3.compose.AsyncImage(
+                            model = ImageRequest.Builder(context)
+                                .data(wallpaper.thumbnailUrl)
+                                .build(),
+                            contentDescription = null,
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .blur(24.dp)
+                                .graphicsLayer { 
+                                    alpha = 0.5f 
+                                    clip = true
+                                },
+                            contentScale = ContentScale.Crop,
+                            alignment = Alignment.Center
+                        )
                     }
 
                     SubcomposeAsyncImage(
@@ -410,9 +452,17 @@ fun PreviewRoute(
                             .build(),
                         contentDescription = wallpaper.title,
                         modifier = sharedImageModifier,
-                        contentScale = ContentScale.Crop,
+                        contentScale = ContentScale.Fit,
                         alignment = Alignment.Center,
-                        onSuccess = { isLoaded = true },
+                        onSuccess = { state ->
+                            isLoaded = true
+                            val size = state.painter.intrinsicSize
+                            if (size.width > 0 && size.height > 0) {
+                                val scaleX = metrics.widthPixels.toFloat() / size.width
+                                val scaleY = metrics.heightPixels.toFloat() / size.height
+                                baseScaleFill = maxOf(scaleX, scaleY) / minOf(scaleX, scaleY)
+                            }
+                        },
                         loading = {
                             Box(
                                 modifier = Modifier.fillMaxSize(),
@@ -424,7 +474,7 @@ fun PreviewRoute(
                                         bitmap = bitmap,
                                         contentDescription = null,
                                         modifier = Modifier.fillMaxSize(),
-                                        contentScale = ContentScale.Crop,
+                                        contentScale = ContentScale.Fit,
                                         alignment = Alignment.Center
                                     )
                                 }
@@ -438,7 +488,7 @@ fun PreviewRoute(
                                         .build(),
                                     contentDescription = null,
                                     modifier = Modifier.fillMaxSize(),
-                                    contentScale = ContentScale.Crop,
+                                    contentScale = ContentScale.Fit,
                                     alignment = Alignment.Center
                                 )
 
