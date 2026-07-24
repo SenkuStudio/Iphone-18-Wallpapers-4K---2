@@ -483,8 +483,7 @@ private enum class DrawerItem(val label: String, val icon: androidx.compose.ui.g
     ShareApp("Share app", Icons.Rounded.Share),
     RateUs("Rate us", Icons.Rounded.Star),
     MoreApps("More apps", Icons.Rounded.Apps),
-    ContactUs("Contact us", Icons.Rounded.Email),
-    PrivacyPolicy("Privacy policy", Icons.Rounded.Description)
+    ContactUs("Contact us", Icons.Rounded.Email)
 }
 
 @Composable
@@ -541,19 +540,15 @@ private fun handleDrawerAction(context: android.content.Context, item: DrawerIte
             val intent = Intent(Intent.ACTION_SEND).apply {
                 type = "text/plain"
                 putExtra(Intent.EXTRA_SUBJECT, "Check out Krishna Wallpaper 4k App")
-                putExtra(Intent.EXTRA_TEXT, "Download Krishna Wallpaper 4k for amazing wallpapers: https://play.google.com/store/apps/details?id=${context.packageName}")
+                putExtra(Intent.EXTRA_TEXT, "Download Krishna Wallpaper 4k for amazing wallpapers: https://play.google.com/store/apps/details?id=com.walli.wallpaper")
             }
             context.startActivity(Intent.createChooser(intent, "Share via"))
         }
         DrawerItem.RateUs -> {
-            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=${context.packageName}")).apply {
+            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/apps/details?id=com.walli.wallpaper")).apply {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }
-            try {
-                context.startActivity(intent)
-            } catch (e: Exception) {
-                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/apps/details?id=${context.packageName}")))
-            }
+            context.startActivity(intent)
         }
         DrawerItem.MoreApps -> {
             val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/apps/dev?id=8066128835537801410"))
@@ -569,10 +564,6 @@ private fun handleDrawerAction(context: android.content.Context, item: DrawerIte
             } catch (e: Exception) {
                 Toast.makeText(context, "No email app found", Toast.LENGTH_SHORT).show()
             }
-        }
-        DrawerItem.PrivacyPolicy -> {
-            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://walliapp.com/privacy-policy"))
-            context.startActivity(intent)
         }
     }
 }
