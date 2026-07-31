@@ -1,13 +1,13 @@
 <resources>
-    <style name="Theme.Walli" parent="Theme.Material3.DayNight.NoActionBar">
+    <style name="Theme.Spiderman" parent="Theme.Material3.DayNight.NoActionBar">
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:windowLightStatusBar">false</item>
     </style>
 
-    <style name="Theme.Walli.Splash" parent="Theme.SplashScreen">
-        <item name="windowSplashScreenAnimatedIcon">@drawable/logoapp</item>
-        <item name="windowSplashScreenBackground">@color/walli_splash_icon_bg</item>
-        <item name="postSplashScreenTheme">@style/Theme.Walli</item>
+    <style name="Theme.Spiderman.Splash" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenAnimatedIcon">@drawable/logoappspiderman</item>
+        <item name="windowSplashScreenBackground">@color/spiderman_splash_icon_bg</item>
+        <item name="postSplashScreenTheme">@style/Theme.Spiderman</item>
     </style>
 </resources>

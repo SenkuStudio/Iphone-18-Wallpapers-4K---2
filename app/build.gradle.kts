@@ -8,15 +8,15 @@ plugins {
 }
 
 android {
-    namespace = "com.walli.wallpaper"
+    namespace = "com.walli.spidermanwallpaper"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.walli.wallpaper"
+        applicationId = "com.walli.spidermanwallpaper"
         minSdk = 24
         targetSdk = 36
-        versionCode = 6
-        versionName = "6.0.0"
+        versionCode = 8
+        versionName = "8.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = true
@@ -145,6 +145,7 @@ dependencies {
     implementation(libs.coil.network.okhttp)
 
     implementation(libs.ads)
+    implementation(libs.ump)
     implementation(libs.coroutines.android)
     implementation(libs.palette.ktx)
 
