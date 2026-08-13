@@ -32,6 +32,7 @@ class SpidermanApp : Application(), SingletonImageLoader.Factory, Configuration.
         super.onCreate()
         MobileAds.initialize(this) {}
         registerActivityLifecycleCallbacks(adMobManager)
+        adMobManager.warmUp()
     }
 
     override val workManagerConfiguration: Configuration

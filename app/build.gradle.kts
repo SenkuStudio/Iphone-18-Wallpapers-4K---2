@@ -42,6 +42,7 @@ android {
         buildConfigField("String", "ADMOB_APP_OPEN", "\"${localProperties.getProperty("ADMOB_APP_OPEN") ?: ""}\"")
         buildConfigField("String", "ADMOB_INTERSTITIAL_HOME", "\"${localProperties.getProperty("ADMOB_INTERSTITIAL_HOME") ?: ""}\"")
         buildConfigField("String", "ADMOB_INTERSTITIAL_CATEGORY", "\"${localProperties.getProperty("ADMOB_INTERSTITIAL_CATEGORY") ?: ""}\"")
+        buildConfigField("String", "ADMOB_INTERSTITIAL_SET_WALLPAPER", "\"${localProperties.getProperty("ADMOB_INTERSTITIAL_SET_WALLPAPER") ?: ""}\"")
 
         // Rewarded IDs
         buildConfigField("String", "ADMOB_REWARDED_HOME", "\"${localProperties.getProperty("ADMOB_REWARDED_HOME") ?: ""}\"")

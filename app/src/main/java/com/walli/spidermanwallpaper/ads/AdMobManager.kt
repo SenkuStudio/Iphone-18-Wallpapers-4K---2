@@ -40,6 +40,7 @@ class AdMobManager @Inject constructor(
 
     private var homeInterstitialAd: InterstitialAd? = null
     private var categoryInterstitialAd: InterstitialAd? = null
+    private var setWallpaperInterstitialAd: InterstitialAd? = null
 
     private var homeRewardedAd: RewardedAd? = null
     private var categoryRewardedAd: RewardedAd? = null
@@ -78,15 +79,15 @@ class AdMobManager @Inject constructor(
     }
 
     fun warmUp() {
-        if (isAppInForeground) {
-            loadAllAds()
-            loadAppOpenAd()
-        }
+        loadAllAds()
+        loadAppOpenAd()
     }
 
     private fun loadAllAds() {
+        Log.d(TAG, "Loading all ads...")
         loadInterstitial(BuildConfig.ADMOB_INTERSTITIAL_HOME) { homeInterstitialAd = it }
         loadInterstitial(BuildConfig.ADMOB_INTERSTITIAL_CATEGORY) { categoryInterstitialAd = it }
+        loadInterstitial(BuildConfig.ADMOB_INTERSTITIAL_SET_WALLPAPER) { setWallpaperInterstitialAd = it }
 
         loadRewarded(BuildConfig.ADMOB_REWARDED_HOME) { homeRewardedAd = it }
         loadRewarded(BuildConfig.ADMOB_REWARDED_CATEGORY) { categoryRewardedAd = it }
@@ -94,15 +95,17 @@ class AdMobManager @Inject constructor(
         loadRewarded(BuildConfig.ADMOB_REWARDED_DOWNLOAD) { downloadRewardedAd = it }
         
         // Initial pool fill for all native IDs
-        android.os.Handler(android.os.Looper.getMainLooper()).post {
-            loadNativeAd(BuildConfig.ADMOB_NATIVE_HOME)
-            loadNativeAd(BuildConfig.ADMOB_NATIVE_CATEGORIES)
-            loadNativeAd(BuildConfig.ADMOB_NATIVE_WALLPAPERS)
-        }
+        loadNativeAd(BuildConfig.ADMOB_NATIVE_HOME)
+        loadNativeAd(BuildConfig.ADMOB_NATIVE_CATEGORIES)
+        loadNativeAd(BuildConfig.ADMOB_NATIVE_WALLPAPERS)
     }
 
     fun maybeShowCategoryInterstitial(activity: Activity?, onContinue: () -> Unit) {
         showInterstitial(activity, categoryInterstitialAd, { categoryInterstitialAd = null }, BuildConfig.ADMOB_INTERSTITIAL_CATEGORY, onContinue)
+    }
+
+    fun maybeShowSetWallpaperInterstitial(activity: Activity?, onContinue: () -> Unit) {
+        showInterstitial(activity, setWallpaperInterstitialAd, { setWallpaperInterstitialAd = null }, BuildConfig.ADMOB_INTERSTITIAL_SET_WALLPAPER, onContinue)
     }
 
     fun maybeShowHomeInterstitial(activity: Activity?, onContinue: () -> Unit) {
@@ -124,8 +127,11 @@ class AdMobManager @Inject constructor(
         if (activity == null || ad == null) {
             onContinue()
             if (isAppInForeground) loadInterstitial(adUnitId) { 
-                if (adUnitId == BuildConfig.ADMOB_INTERSTITIAL_HOME) homeInterstitialAd = it
-                else if (adUnitId == BuildConfig.ADMOB_INTERSTITIAL_CATEGORY) categoryInterstitialAd = it
+                when (adUnitId) {
+                    BuildConfig.ADMOB_INTERSTITIAL_HOME -> homeInterstitialAd = it
+                    BuildConfig.ADMOB_INTERSTITIAL_CATEGORY -> categoryInterstitialAd = it
+                    BuildConfig.ADMOB_INTERSTITIAL_SET_WALLPAPER -> setWallpaperInterstitialAd = it
+                }
             }
             return
         }
@@ -134,8 +140,11 @@ class AdMobManager @Inject constructor(
             override fun onAdDismissedFullScreenContent() {
                 clearAd()
                 if (isAppInForeground) loadInterstitial(adUnitId) {
-                    if (adUnitId == BuildConfig.ADMOB_INTERSTITIAL_HOME) homeInterstitialAd = it
-                    else if (adUnitId == BuildConfig.ADMOB_INTERSTITIAL_CATEGORY) categoryInterstitialAd = it
+                    when (adUnitId) {
+                        BuildConfig.ADMOB_INTERSTITIAL_HOME -> homeInterstitialAd = it
+                        BuildConfig.ADMOB_INTERSTITIAL_CATEGORY -> categoryInterstitialAd = it
+                        BuildConfig.ADMOB_INTERSTITIAL_SET_WALLPAPER -> setWallpaperInterstitialAd = it
+                    }
                 }
                 onContinue()
             }
@@ -143,8 +152,11 @@ class AdMobManager @Inject constructor(
             override fun onAdFailedToShowFullScreenContent(adError: AdError) {
                 clearAd()
                 if (isAppInForeground) loadInterstitial(adUnitId) {
-                    if (adUnitId == BuildConfig.ADMOB_INTERSTITIAL_HOME) homeInterstitialAd = it
-                    else if (adUnitId == BuildConfig.ADMOB_INTERSTITIAL_CATEGORY) categoryInterstitialAd = it
+                    when (adUnitId) {
+                        BuildConfig.ADMOB_INTERSTITIAL_HOME -> homeInterstitialAd = it
+                        BuildConfig.ADMOB_INTERSTITIAL_CATEGORY -> categoryInterstitialAd = it
+                        BuildConfig.ADMOB_INTERSTITIAL_SET_WALLPAPER -> setWallpaperInterstitialAd = it
+                    }
                 }
                 onContinue()
             }
@@ -232,7 +244,7 @@ class AdMobManager @Inject constructor(
     }
 
     private fun loadInterstitial(adUnitId: String, onLoaded: (InterstitialAd) -> Unit) {
-        if (!isAppInForeground || adUnitId.isBlank()) return
+        if (adUnitId.isBlank()) return
         InterstitialAd.load(
             context,
             adUnitId,
@@ -247,7 +259,7 @@ class AdMobManager @Inject constructor(
     }
 
     private fun loadRewarded(adUnitId: String, onLoaded: (RewardedAd) -> Unit) {
-        if (!isAppInForeground || adUnitId.isBlank()) return
+        if (adUnitId.isBlank()) return
         RewardedAd.load(
             context,
             adUnitId,
@@ -263,7 +275,7 @@ class AdMobManager @Inject constructor(
     }
 
     private fun loadNativeAd(adUnitId: String) {
-        if (!isAppInForeground || adUnitId.isBlank()) return
+        if (adUnitId.isBlank()) return
         
         val pool = synchronized(nativeAdsPools) {
             nativeAdsPools.getOrPut(adUnitId) { mutableListOf() }

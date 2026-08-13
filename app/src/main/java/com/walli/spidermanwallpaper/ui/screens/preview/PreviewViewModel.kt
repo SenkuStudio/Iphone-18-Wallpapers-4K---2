@@ -40,6 +40,7 @@ data class PreviewUiState(
     val isOnline: Boolean = true,
     val transformations: Map<Int, ImageTransformation> = emptyMap(),
     val wallpaperToUnlock: Wallpaper? = null,
+    val wallpaperApplied: Boolean = false,
 )
 
 @HiltViewModel
@@ -226,6 +227,10 @@ class PreviewViewModel @Inject constructor(
         }
     }
 
+    fun consumeWallpaperApplied() {
+        _uiState.update { it.copy(wallpaperApplied = false) }
+    }
+
     fun applyWallpaper(index: Int, target: WallpaperTarget) {
         val wallpaper = _uiState.value.items.getOrNull(index) ?: return
         val transformation = _uiState.value.transformations[index] ?: ImageTransformation()
@@ -241,6 +246,7 @@ class PreviewViewModel @Inject constructor(
             )
                 .onSuccess {
                     setMessage("Wallpaper applied to ${target.label.lowercase()}")
+                    _uiState.update { it.copy(wallpaperApplied = true) }
                 }
                 .onFailure { throwable ->
                     setMessage(throwable.message ?: "Wallpaper apply failed")

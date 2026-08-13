@@ -171,6 +171,14 @@ fun PreviewRoute(
     var dominantColor by remember { mutableStateOf(Color.Black) }
     var onDominantColor by remember { mutableStateOf(Color.White) }
 
+    LaunchedEffect(state.wallpaperApplied) {
+        if (state.wallpaperApplied) {
+            adsViewModel.maybeShowSetWallpaperInterstitial(activity) {
+                viewModel.consumeWallpaperApplied()
+            }
+        }
+    }
+
     LaunchedEffect(state.message) {
         state.message?.let { message ->
             snackbarHostState.showSnackbar(message)
