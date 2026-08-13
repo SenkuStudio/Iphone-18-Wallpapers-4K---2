@@ -15,8 +15,8 @@ android {
         applicationId = "com.walli.spidermanwallpaper"
         minSdk = 24
         targetSdk = 36
-        versionCode = 8
-        versionName = "8.0.0"
+        versionCode = 10
+        versionName = "10.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = true
@@ -39,6 +39,7 @@ android {
         buildConfigField("String", "ADMOB_BANNER_SETTINGS", "\"${localProperties.getProperty("ADMOB_BANNER_SETTINGS") ?: ""}\"")
 
         // Interstitial IDs
+        buildConfigField("String", "ADMOB_APP_OPEN", "\"${localProperties.getProperty("ADMOB_APP_OPEN") ?: ""}\"")
         buildConfigField("String", "ADMOB_INTERSTITIAL_HOME", "\"${localProperties.getProperty("ADMOB_INTERSTITIAL_HOME") ?: ""}\"")
         buildConfigField("String", "ADMOB_INTERSTITIAL_CATEGORY", "\"${localProperties.getProperty("ADMOB_INTERSTITIAL_CATEGORY") ?: ""}\"")
 

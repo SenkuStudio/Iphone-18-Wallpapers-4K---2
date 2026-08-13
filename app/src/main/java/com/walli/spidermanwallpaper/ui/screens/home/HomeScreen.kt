@@ -1,5 +1,6 @@
 package com.walli.spidermanwallpaper.ui.screens.home
 
+import UnlockPremiumDialog
 import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.foundation.Image
@@ -65,6 +66,9 @@ import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
@@ -88,7 +92,7 @@ import com.walli.spidermanwallpaper.ui.components.FeaturedHeroCard
 import com.walli.spidermanwallpaper.ui.components.NoInternetState
 import com.walli.spidermanwallpaper.ui.components.WallpaperCard
 import com.walli.spidermanwallpaper.ui.components.WallpaperCardShimmer
-import com.walli.spidermanwallpaper.ui.components.UnlockPremiumDialog
+import UnlockPremiumDialog
 import com.walli.spidermanwallpaper.util.findActivity
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
@@ -124,10 +128,11 @@ fun HomeRoute(
             val capabilities = connectivityManager.getNetworkCapabilities(connectivityManager.activeNetwork)
             val isOnline = capabilities?.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET) == true
 
-            if (!isOnline && wallpaper.isPremium && !wallpaper.isUnlocked) {
+            val isUnlocked = state.unlockedIds.contains(wallpaper.id)
+            if (!isOnline && wallpaper.isPremium && !isUnlocked) {
                 android.widget.Toast.makeText(context, "Internet required to unlock premium content", android.widget.Toast.LENGTH_SHORT).show()
             } else {
-                if (wallpaper.isPremium && !wallpaper.isUnlocked) {
+                if (wallpaper.isPremium && !isUnlocked) {
                     viewModel.onWallpaperClick(index)
                 } else {
                     adsViewModel.maybeShowHomeInterstitial(activity) {
@@ -141,6 +146,33 @@ fun HomeRoute(
 
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = androidx.compose.runtime.rememberCoroutineScope()
+    val isRewardedReady by adsViewModel.isRewardedReady.collectAsStateWithLifecycle()
+    var isAdLoading by remember { mutableStateOf(false) }
+
+    val showAdAndUnlock: (com.walli.spidermanwallpaper.domain.model.Wallpaper) -> Unit = { wallpaper ->
+        adsViewModel.showHomeRewarded(
+            activity = activity,
+            onReward = {
+                viewModel.unlockWallpaper(wallpaper)
+                onOpenPreview()
+            },
+            onDismiss = {
+                isAdLoading = false
+            },
+            onError = { message ->
+                isAdLoading = false
+                Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+            }
+        )
+    }
+
+    LaunchedEffect(isRewardedReady, isAdLoading) {
+        if (isRewardedReady && isAdLoading) {
+            state.wallpaperToUnlock?.let { wallpaper ->
+                showAdAndUnlock(wallpaper)
+            }
+        }
+    }
 
     ModalNavigationDrawer(
         drawerState = drawerState,
@@ -169,18 +201,17 @@ fun HomeRoute(
     state.wallpaperToUnlock?.let { wallpaper ->
         UnlockPremiumDialog(
             wallpaper = wallpaper,
-            onDismiss = viewModel::dismissUnlockDialog,
+            isLoading = isAdLoading,
+            onDismiss = {
+                isAdLoading = false
+                viewModel.dismissUnlockDialog()
+            },
             onUnlock = {
-                adsViewModel.showHomeRewarded(
-                    activity = activity,
-                    onReward = {
-                        viewModel.unlockWallpaper(wallpaper)
-                        onOpenPreview()
-                    },
-                    onError = { message ->
-                        Toast.makeText(context, message, Toast.LENGTH_LONG).show()
-                    }
-                )
+                if (isRewardedReady) {
+                    showAdAndUnlock(wallpaper)
+                } else {
+                    isAdLoading = true
+                }
             }
         )
     }

@@ -1,6 +1,7 @@
 package com.walli.spidermanwallpaper
 
 import android.app.Application
+import com.walli.spidermanwallpaper.ads.AdMobManager
 import com.google.android.gms.ads.MobileAds
 import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
@@ -24,8 +25,13 @@ class SpidermanApp : Application(), SingletonImageLoader.Factory, Configuration.
     @Inject
     lateinit var okHttpClient: OkHttpClient
 
+    @Inject
+    lateinit var adMobManager: AdMobManager
+
     override fun onCreate() {
         super.onCreate()
+        MobileAds.initialize(this) {}
+        registerActivityLifecycleCallbacks(adMobManager)
     }
 
     override val workManagerConfiguration: Configuration

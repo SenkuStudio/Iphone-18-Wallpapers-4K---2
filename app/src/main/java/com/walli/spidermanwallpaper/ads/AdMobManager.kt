@@ -1,7 +1,9 @@
 package com.walli.spidermanwallpaper.ads
 
 import android.app.Activity
+import android.app.Application
 import android.content.Context
+import android.os.Bundle
 import android.util.Log
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
@@ -11,6 +13,7 @@ import com.google.android.gms.ads.AdRequest
 import com.google.android.gms.ads.FullScreenContentCallback
 import com.google.android.gms.ads.LoadAdError
 import com.google.android.gms.ads.OnUserEarnedRewardListener
+import com.google.android.gms.ads.appopen.AppOpenAd
 import com.google.android.gms.ads.nativead.NativeAd
 import com.google.android.gms.ads.nativead.NativeAdOptions
 import com.google.android.gms.ads.AdLoader
@@ -29,7 +32,12 @@ import javax.inject.Singleton
 @Singleton
 class AdMobManager @Inject constructor(
     @ApplicationContext private val context: Context,
-) : DefaultLifecycleObserver {
+) : DefaultLifecycleObserver, Application.ActivityLifecycleCallbacks {
+    private var appOpenAd: AppOpenAd? = null
+    private var isLoadingAppOpenAd = false
+    private var appOpenLoadTime: Long = 0
+    private var currentActivity: Activity? = null
+
     private var homeInterstitialAd: InterstitialAd? = null
     private var categoryInterstitialAd: InterstitialAd? = null
 
@@ -41,11 +49,9 @@ class AdMobManager @Inject constructor(
     // Multiple pools for unique Ad IDs
     private val nativeAdsPools = mutableMapOf<String, MutableList<NativeAd>>()
     private val assignedNativeAds = mutableMapOf<String, NativeAd>()
-    private val maxNativeAdsPerId = 10
-    private val maxConcurrentLoads = 6
+    private val maxNativeAdsPerId = 3
+    private val maxConcurrentLoads = 2
     private var globalNativeLoadingCount = 0
-    private val nativeRetryDelays = mutableMapOf<String, Long>()
-    private val maxRetryDelay = 30000L
     private val TAG = "AdMobManager"
     
     // Test ID for fallback if BuildConfig is empty
@@ -56,6 +62,7 @@ class AdMobManager @Inject constructor(
 
     private var openCounter = 0
     private var isAppInForeground = false
+    private var isShowingAd = false
 
     init {
         ProcessLifecycleOwner.get().lifecycle.addObserver(this)
@@ -63,6 +70,7 @@ class AdMobManager @Inject constructor(
 
     override fun onStart(owner: LifecycleOwner) {
         isAppInForeground = true
+        showAppOpenAdIfAvailable()
     }
 
     override fun onStop(owner: LifecycleOwner) {
@@ -72,6 +80,7 @@ class AdMobManager @Inject constructor(
     fun warmUp() {
         if (isAppInForeground) {
             loadAllAds()
+            loadAppOpenAd()
         }
     }
 
@@ -260,12 +269,8 @@ class AdMobManager @Inject constructor(
             nativeAdsPools.getOrPut(adUnitId) { mutableListOf() }
         }
 
-        val currentCount = pool.size
-        if (currentCount >= maxNativeAdsPerId) return
+        if (pool.size >= maxNativeAdsPerId) return
         if (globalNativeLoadingCount >= maxConcurrentLoads) return
-
-        val canLoadNow = (maxNativeAdsPerId - currentCount).coerceAtMost(maxConcurrentLoads - globalNativeLoadingCount)
-        if (canLoadNow <= 0) return
 
         val id = if (adUnitId.isBlank()) TEST_NATIVE_ID else adUnitId
         
@@ -274,37 +279,25 @@ class AdMobManager @Inject constructor(
             .setVideoOptions(VideoOptions.Builder().setStartMuted(true).build())
             .build()
 
-        repeat(canLoadNow) {
-            globalNativeLoadingCount++
-            
-            AdLoader.Builder(context, id)
-                .forNativeAd { ad ->
-                    synchronized(nativeAdsPools) {
-                        pool.add(ad)
-                    }
-                    globalNativeLoadingCount--
-                    nativeRetryDelays[adUnitId] = 2000L
-                    Log.d(TAG, "Native ad loaded for $adUnitId. Pool size: ${pool.size}")
-                    loadNativeAd(adUnitId)
+        globalNativeLoadingCount++
+        
+        AdLoader.Builder(context, id)
+            .forNativeAd { ad ->
+                synchronized(nativeAdsPools) {
+                    pool.add(ad)
                 }
-                .withAdListener(object : com.google.android.gms.ads.AdListener() {
-                    override fun onAdFailedToLoad(error: LoadAdError) {
-                        globalNativeLoadingCount--
-                        Log.e(TAG, "Native ad load failed for $adUnitId: ${error.message}")
-                        
-                        if (isAppInForeground) {
-                            val delay = nativeRetryDelays[adUnitId] ?: 2000L
-                            android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
-                                loadNativeAd(adUnitId)
-                            }, delay)
-                            nativeRetryDelays[adUnitId] = (delay * 2).coerceAtMost(maxRetryDelay)
-                        }
-                    }
-                })
-                .withNativeAdOptions(adOptions)
-                .build()
-                .loadAd(AdRequest.Builder().build())
-        }
+                globalNativeLoadingCount--
+                Log.d(TAG, "Native ad loaded for $adUnitId. Pool size: ${pool.size}")
+            }
+            .withAdListener(object : com.google.android.gms.ads.AdListener() {
+                override fun onAdFailedToLoad(error: LoadAdError) {
+                    globalNativeLoadingCount--
+                    Log.e(TAG, "Native ad load failed for $adUnitId: ${error.message}")
+                }
+            })
+            .withNativeAdOptions(adOptions)
+            .build()
+            .loadAd(AdRequest.Builder().build())
     }
 
     fun getNativeAd(adUnitId: String, key: String? = null): NativeAd? {
@@ -332,4 +325,80 @@ class AdMobManager @Inject constructor(
         }
         return ad
     }
+
+    /** App Open Ad Logic */
+    private fun loadAppOpenAd() {
+        if (isLoadingAppOpenAd || isAppOpenAdAvailable() || BuildConfig.ADMOB_APP_OPEN.isBlank()) return
+
+        isLoadingAppOpenAd = true
+        val request = AdRequest.Builder().build()
+        AppOpenAd.load(
+            context,
+            BuildConfig.ADMOB_APP_OPEN,
+            request,
+            object : AppOpenAd.AppOpenAdLoadCallback() {
+                override fun onAdLoaded(ad: AppOpenAd) {
+                    appOpenAd = ad
+                    isLoadingAppOpenAd = false
+                    appOpenLoadTime = System.currentTimeMillis()
+                    Log.d(TAG, "App Open Ad Loaded")
+                }
+
+                override fun onAdFailedToLoad(loadAdError: LoadAdError) {
+                    isLoadingAppOpenAd = false
+                    Log.e(TAG, "App Open Ad Failed to Load: ${loadAdError.message}")
+                }
+            }
+        )
+    }
+
+    private fun showAppOpenAdIfAvailable() {
+        if (isShowingAd || !isAppOpenAdAvailable()) {
+            loadAppOpenAd()
+            return
+        }
+
+        appOpenAd?.fullScreenContentCallback = object : FullScreenContentCallback() {
+            override fun onAdDismissedFullScreenContent() {
+                appOpenAd = null
+                isShowingAd = false
+                loadAppOpenAd()
+            }
+
+            override fun onAdFailedToShowFullScreenContent(adError: AdError) {
+                appOpenAd = null
+                isShowingAd = false
+                loadAppOpenAd()
+            }
+
+            override fun onAdShowedFullScreenContent() {
+                isShowingAd = true
+            }
+        }
+
+        currentActivity?.let {
+            appOpenAd?.show(it)
+        } ?: run {
+            loadAppOpenAd()
+        }
+    }
+
+    private fun isAppOpenAdAvailable(): Boolean {
+        return appOpenAd != null && wasLoadTimeLessThanNHoursAgo(4)
+    }
+
+    private fun wasLoadTimeLessThanNHoursAgo(numHours: Long): Boolean {
+        val dateDifference = System.currentTimeMillis() - appOpenLoadTime
+        val numMilliSecondsPerHour: Long = 3600000
+        return dateDifference < numMilliSecondsPerHour * numHours
+    }
+
+    /** Activity Lifecycle Callbacks to track current activity */
+    override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) {}
+    override fun onActivityStarted(activity: Activity) { currentActivity = activity }
+    override fun onActivityResumed(activity: Activity) { currentActivity = activity }
+    override fun onActivityPaused(activity: Activity) { currentActivity = null }
+    override fun onActivityStopped(activity: Activity) {}
+    override fun onActivitySaveInstanceState(activity: Activity, outState: Bundle) {}
+    override fun onActivityDestroyed(activity: Activity) { currentActivity = null }
 }

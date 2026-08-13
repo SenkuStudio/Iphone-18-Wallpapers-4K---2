@@ -207,7 +207,7 @@ fun WallpaperCard(
                     .padding(10.dp),
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
             ) {
-                if (wallpaper.isPremium) {
+                if (wallpaper.isPremium && !isUnlocked) {
                     Surface(
                         shape = RoundedCornerShape(12.dp),
                         color = MaterialTheme.colorScheme.primaryContainer,
@@ -218,14 +218,14 @@ fun WallpaperCard(
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Icon(
-                                imageVector = if (isUnlocked) Icons.Rounded.Star else Icons.Rounded.Lock,
+                                imageVector = Icons.Rounded.Lock,
                                 contentDescription = null,
                                 modifier = Modifier.size(12.dp),
                                 tint = MaterialTheme.colorScheme.onPrimaryContainer
                             )
                             Spacer(modifier = Modifier.size(4.dp))
                             Text(
-                                text = if (isUnlocked) "Premium" else "Unlock",
+                                text = "Unlock",
                                 style = MaterialTheme.typography.labelSmall,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onPrimaryContainer

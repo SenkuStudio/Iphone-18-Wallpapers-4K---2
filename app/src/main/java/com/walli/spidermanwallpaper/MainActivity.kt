@@ -3,6 +3,7 @@ package com.walli.spidermanwallpaper
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
@@ -35,26 +36,10 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
+        enableEdgeToEdge()
         super.onCreate(savedInstanceState)
-        WindowCompat.setDecorFitsSystemWindows(window, false)
 
-        consentManager = ConsentManager.getInstance(this)
-        consentManager.gatherConsent(this) { error ->
-            if (error != null) {
-                // Consent not obtained in under certain circumstances.
-                // Log the error.
-            }
-
-            if (consentManager.canRequestAds()) {
-                initializeMobileAdsSdk()
-            }
-        }
-
-        // This method can be called even if the user hasn't given consent,
-        // but it will only initialize the SDK if consent is already available.
-        if (consentManager.canRequestAds()) {
-            initializeMobileAdsSdk()
-        }
+        if (isFinishing) return
 
         setContent {
             val theme by settingsManager.theme.collectAsState(initial = AppTheme.SYSTEM)
@@ -85,6 +70,24 @@ class MainActivity : ComponentActivity() {
                     )
                 }
             }
+        }
+
+        consentManager = ConsentManager.getInstance(this)
+        consentManager.gatherConsent(this) { error ->
+            if (error != null) {
+                // Consent not obtained in under certain circumstances.
+                // Log the error.
+            }
+
+            if (consentManager.canRequestAds()) {
+                initializeMobileAdsSdk()
+            }
+        }
+
+        // This method can be called even if the user hasn't given consent,
+        // but it will only initialize the SDK if consent is already available.
+        if (consentManager.canRequestAds()) {
+            initializeMobileAdsSdk()
         }
     }
 

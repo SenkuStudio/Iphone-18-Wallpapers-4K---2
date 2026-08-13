@@ -1,5 +1,6 @@
 package com.walli.spidermanwallpaper.ui.screens.category_wallpapers
 
+import UnlockPremiumDialog
 import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.foundation.background
@@ -18,7 +19,11 @@ import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
+import android.widget.Toast
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -29,14 +34,13 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.platform.LocalConfiguration
 import com.walli.spidermanwallpaper.BuildConfig
 import com.walli.spidermanwallpaper.ads.AdsViewModel
-import com.walli.spidermanwallpaper.domain.model.WallpaperCategory
 import com.walli.spidermanwallpaper.ui.common.LoadState
 import com.walli.spidermanwallpaper.ui.components.BannerAd
 import com.walli.spidermanwallpaper.ui.components.EmptyState
 import com.walli.spidermanwallpaper.ui.components.NoInternetState
 import com.walli.spidermanwallpaper.ui.components.WallpaperCard
 import com.walli.spidermanwallpaper.ui.components.WallpaperCardShimmer
-import com.walli.spidermanwallpaper.ui.components.UnlockPremiumDialog
+import UnlockPremiumDialog
 import com.walli.spidermanwallpaper.ui.screens.home.HomeUiState
 import com.walli.spidermanwallpaper.ui.screens.home.HomeViewModel
 import com.walli.spidermanwallpaper.util.findActivity
@@ -57,20 +61,60 @@ fun CategoryWallpapersRoute(
     adsViewModel: AdsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    val activity = LocalContext.current.findActivity()
+    val context = LocalContext.current
+    val activity = context.findActivity()
 
     LaunchedEffect(categoryId) {
-        viewModel.selectCategory(WallpaperCategory(id = categoryId, name = categoryName))
+        viewModel.selectCategory(com.walli.spidermanwallpaper.domain.model.WallpaperCategory(id = categoryId, name = categoryName))
     }
 
     val onWallpaperClick: (Int) -> Unit = { index ->
         val wallpaper = state.wallpapers.getOrNull(index)
-        if (wallpaper != null && wallpaper.isPremium && !wallpaper.isUnlocked) {
-            viewModel.onWallpaperClick(index)
-        } else {
-            adsViewModel.maybeShowCategoryInterstitial(activity) {
-                viewModel.openPreview(index)
+        if (wallpaper != null) {
+            val connectivityManager = context.getSystemService(android.content.Context.CONNECTIVITY_SERVICE) as android.net.ConnectivityManager
+            val capabilities = connectivityManager.getNetworkCapabilities(connectivityManager.activeNetwork)
+            val isOnline = capabilities?.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET) == true
+
+            val isUnlocked = state.unlockedIds.contains(wallpaper.id)
+            if (!isOnline && wallpaper.isPremium && !isUnlocked) {
+                Toast.makeText(context, "Internet required to unlock premium content", Toast.LENGTH_SHORT).show()
+            } else {
+                if (wallpaper.isPremium && !isUnlocked) {
+                    viewModel.onWallpaperClick(index)
+                } else {
+                    adsViewModel.maybeShowCategoryInterstitial(activity) {
+                        viewModel.openPreview(index)
+                        onOpenPreview()
+                    }
+                }
+            }
+        }
+    }
+
+    val isRewardedReady by adsViewModel.isRewardedReady.collectAsStateWithLifecycle()
+    var isAdLoading by remember { mutableStateOf(false) }
+
+    val showAdAndUnlock: (com.walli.spidermanwallpaper.domain.model.Wallpaper) -> Unit = { wallpaper ->
+        adsViewModel.showCategoryRewarded(
+            activity = activity,
+            onReward = {
+                viewModel.unlockWallpaper(wallpaper)
                 onOpenPreview()
+            },
+            onDismiss = {
+                isAdLoading = false
+            },
+            onError = { message ->
+                isAdLoading = false
+                Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+            }
+        )
+    }
+
+    LaunchedEffect(isRewardedReady, isAdLoading) {
+        if (isRewardedReady && isAdLoading) {
+            state.wallpaperToUnlock?.let { wallpaper ->
+                showAdAndUnlock(wallpaper)
             }
         }
     }
@@ -118,18 +162,17 @@ fun CategoryWallpapersRoute(
     state.wallpaperToUnlock?.let { wallpaper ->
         UnlockPremiumDialog(
             wallpaper = wallpaper,
-            onDismiss = viewModel::dismissUnlockDialog,
+            isLoading = isAdLoading,
+            onDismiss = {
+                isAdLoading = false
+                viewModel.dismissUnlockDialog()
+            },
             onUnlock = {
-                adsViewModel.showCategoryRewarded(
-                    activity = activity,
-                    onReward = {
-                        viewModel.unlockWallpaper(wallpaper)
-                        onOpenPreview()
-                    },
-                    onError = { message ->
-                        android.widget.Toast.makeText(activity, message, android.widget.Toast.LENGTH_LONG).show()
-                    }
-                )
+                if (isRewardedReady) {
+                    showAdAndUnlock(wallpaper)
+                } else {
+                    isAdLoading = true
+                }
             }
         )
     }

@@ -2,6 +2,7 @@
 
 package com.walli.spidermanwallpaper.ui.screens.preview
 
+import UnlockPremiumDialog
 import android.graphics.Bitmap
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.AnimatedVisibilityScope
@@ -56,6 +57,7 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import android.widget.Toast
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -107,7 +109,7 @@ import androidx.compose.material3.ButtonDefaults
 import com.walli.spidermanwallpaper.ui.components.NoInternetState
 import com.walli.spidermanwallpaper.ui.components.EmptyState
 import com.walli.spidermanwallpaper.ui.components.PremiumLoader
-import com.walli.spidermanwallpaper.ui.components.UnlockPremiumDialog
+import UnlockPremiumDialog
 import com.walli.spidermanwallpaper.util.findActivity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.collectLatest
@@ -137,6 +139,33 @@ fun PreviewRoute(
     val activity = context.findActivity()
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     var showSetSheet by remember { mutableStateOf(false) }
+
+    val isRewardedReady by adsViewModel.isRewardedReady.collectAsStateWithLifecycle()
+    var isAdLoading by remember { mutableStateOf(false) }
+
+    val showAdAndUnlock: (com.walli.spidermanwallpaper.domain.model.Wallpaper) -> Unit = { wallpaper ->
+        adsViewModel.showPreviewRewarded(
+            activity = activity,
+            onReward = {
+                viewModel.unlockWallpaper(wallpaper)
+            },
+            onDismiss = {
+                isAdLoading = false
+            },
+            onError = { message ->
+                isAdLoading = false
+                Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+            }
+        )
+    }
+
+    LaunchedEffect(isRewardedReady, isAdLoading) {
+        if (isRewardedReady && isAdLoading) {
+            state.wallpaperToUnlock?.let { wallpaper ->
+                showAdAndUnlock(wallpaper)
+            }
+        }
+    }
 
     // Color Palette state
     var dominantColor by remember { mutableStateOf(Color.Black) }
@@ -509,7 +538,7 @@ fun PreviewRoute(
                                         )
                                     ) {
                                         PremiumLoader(
-                                            isPremium = wallpaper.isPremium,
+                                            isPremium = wallpaper.isPremium && !wallpaper.isUnlocked,
                                             color = Color.White
                                         )
                                     }
@@ -654,7 +683,7 @@ fun PreviewRoute(
                         shadowElevation = 8.dp
                     ) {
                         Column(modifier = Modifier.padding(16.dp)) {
-                            if (current.isPremium) {
+                            if (current.isPremium && !current.isUnlocked) {
                                 Text(
                                     text = "Premium wallpaper · unlock with rewarded ad",
                                     style = MaterialTheme.typography.labelLarge,
@@ -870,7 +899,7 @@ fun PreviewRoute(
 
             if (state.isWorking) {
                 val currentWallpaper = state.items.getOrNull(pagerState.currentPage % state.items.size)
-                val isPremiumAction = currentWallpaper?.isPremium == true
+                val isPremiumAction = currentWallpaper?.isPremium == true && currentWallpaper?.isUnlocked == false
                 val accentColor = if (isPremiumAction) Color(0xFFFFD700) else onDominantColor
 
                 Box(
@@ -931,17 +960,17 @@ fun PreviewRoute(
     state.wallpaperToUnlock?.let { wallpaper ->
         UnlockPremiumDialog(
             wallpaper = wallpaper,
-            onDismiss = viewModel::dismissUnlockDialog,
+            isLoading = isAdLoading,
+            onDismiss = {
+                isAdLoading = false
+                viewModel.dismissUnlockDialog()
+            },
             onUnlock = {
-                adsViewModel.showPreviewRewarded(
-                    activity = activity,
-                    onReward = {
-                        viewModel.unlockWallpaper(wallpaper)
-                    },
-                    onError = { message ->
-                        android.widget.Toast.makeText(context, message, android.widget.Toast.LENGTH_LONG).show()
-                    }
-                )
+                if (isRewardedReady) {
+                    showAdAndUnlock(wallpaper)
+                } else {
+                    isAdLoading = true
+                }
             }
         )
     }
