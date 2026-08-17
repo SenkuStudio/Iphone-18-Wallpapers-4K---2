@@ -1,6 +1,6 @@
 package com.walli.spidermanwallpaper.ui.screens.home
 
-import UnlockPremiumDialog
+
 import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.foundation.Image
@@ -92,7 +92,7 @@ import com.walli.spidermanwallpaper.ui.components.FeaturedHeroCard
 import com.walli.spidermanwallpaper.ui.components.NoInternetState
 import com.walli.spidermanwallpaper.ui.components.WallpaperCard
 import com.walli.spidermanwallpaper.ui.components.WallpaperCardShimmer
-import UnlockPremiumDialog
+
 import com.walli.spidermanwallpaper.util.findActivity
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
@@ -100,6 +100,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.snapshotFlow
 import com.walli.spidermanwallpaper.BuildConfig
+import com.walli.spidermanwallpaper.ui.components.UnlockPremiumDialog
 
 @OptIn(androidx.compose.animation.ExperimentalSharedTransitionApi::class)
 @Composable
@@ -176,11 +177,24 @@ fun HomeRoute(
 
     ModalNavigationDrawer(
         drawerState = drawerState,
+        // Disable gestures when closed to prevent accidental touch interception
+        // especially after returning from external activities.
+        gesturesEnabled = drawerState.isOpen,
         drawerContent = {
             DrawerContent(
                 onItemClick = { item: DrawerItem ->
-                    scope.launch { drawerState.close() }
-                    handleDrawerAction(context, item)
+                    scope.launch {
+                        // 1. Force the drawer to close INSTANTLY without animation.
+                        // This ensures the state is 'Closed' before the app loses focus.
+                        drawerState.snapTo(DrawerValue.Closed)
+                        
+                        // 2. Small delay to ensure the Compose UI has updated its layout
+                        // and removed the scrim/touch-blocker.
+                        kotlinx.coroutines.delay(50)
+                        
+                        // 3. Trigger the external action
+                        handleDrawerAction(context, item)
+                    }
                 }
             )
         }
@@ -566,14 +580,14 @@ private fun DrawerContent(onItemClick: (DrawerItem) -> Unit) {
 }
 
 private fun handleDrawerAction(context: android.content.Context, item: DrawerItem) {
+    val activity = context.findActivity()
     when (item) {
         DrawerItem.HowToUse -> {
             Toast.makeText(context, "Welcome to Spiderman Wallpapers 4K! Swipe to explore and tap to preview wallpapers.", Toast.LENGTH_LONG).show()
         }
         DrawerItem.Instagram -> {
-            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://www.instagram.com/senku_studio")).apply {
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            }
+            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://www.instagram.com/senku_studio"))
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             context.startActivity(intent)
         }
         DrawerItem.ShareApp -> {
@@ -585,14 +599,30 @@ private fun handleDrawerAction(context: android.content.Context, item: DrawerIte
             context.startActivity(Intent.createChooser(intent, "Share via"))
         }
         DrawerItem.RateUs -> {
-            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/apps/details?id=com.walli.spidermanwallpaper")).apply {
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/apps/details?id=com.walli.spidermanwallpaper"))
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_NO_HISTORY)
+            try {
+                if (activity != null) {
+                    activity.startActivity(intent)
+                } else {
+                    context.startActivity(intent)
+                }
+            } catch (e: Exception) {
+                Toast.makeText(context, "Play Store not found", Toast.LENGTH_SHORT).show()
             }
-            context.startActivity(intent)
         }
         DrawerItem.MoreApps -> {
             val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/apps/dev?id=8066128835537801410"))
-            context.startActivity(intent)
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_NO_HISTORY)
+            try {
+                if (activity != null) {
+                    activity.startActivity(intent)
+                } else {
+                    context.startActivity(intent)
+                }
+            } catch (e: Exception) {
+                Toast.makeText(context, "Play Store not found", Toast.LENGTH_SHORT).show()
+            }
         }
         DrawerItem.ContactUs -> {
             val intent = Intent(Intent.ACTION_SENDTO).apply {

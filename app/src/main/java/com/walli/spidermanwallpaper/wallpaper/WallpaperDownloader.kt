@@ -32,12 +32,21 @@ class WallpaperDownloader @Inject constructor(
         offsetX: Float = 0f,
         offsetY: Float = 0f,
         rotation: Float = 0f,
+        brightness: Float = 1f,
+        contrast: Float = 1f,
+        blur: Float = 0f,
+        saturation: Float = 1f,
+        hue: Float = 0f,
+        structure: Float = 0f,
+        details: Float = 0f,
         applier: WallpaperApplier? = null
     ): Result<Uri> = withContext(Dispatchers.IO) {
         runCatching {
             val fileName = "${title.asSafeFileName()}-${System.currentTimeMillis()}.jpg"
 
-            val finalBitmap = if (scale != 1f || offsetX != 0f || offsetY != 0f || rotation != 0f) {
+            val finalBitmap = if (scale != 1f || offsetX != 0f || offsetY != 0f || rotation != 0f ||
+                brightness != 1f || contrast != 1f || blur != 0f || saturation != 1f || hue != 0f ||
+                structure != 0f || details != 0f) {
                 // If there are transformations, we need to process the bitmap
                 val request = Request.Builder().url(url).build()
                 val response = okHttpClient.newCall(request).execute()
@@ -45,7 +54,10 @@ class WallpaperDownloader @Inject constructor(
                 val stream = response.body?.byteStream() ?: error("Empty image body")
                 val originalBitmap = BitmapFactory.decodeStream(stream) ?: error("Unable to decode bitmap")
                 
-                applier?.transformBitmap(originalBitmap, scale, offsetX, offsetY, rotation) ?: originalBitmap
+                applier?.transformBitmap(
+                    originalBitmap, scale, offsetX, offsetY, rotation,
+                    brightness, contrast, blur, saturation, hue, structure, details
+                ) ?: originalBitmap
             } else {
                 null
             }

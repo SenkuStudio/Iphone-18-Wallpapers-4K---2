@@ -2,8 +2,7 @@
 
 package com.walli.spidermanwallpaper.ui.screens.preview
 
-import UnlockPremiumDialog
-import android.graphics.Bitmap
+
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.SharedTransitionScope
@@ -11,6 +10,8 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -33,17 +34,22 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.AutoFixHigh
 import androidx.compose.material.icons.rounded.ChevronLeft
 import androidx.compose.material.icons.rounded.ChevronRight
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.Lock
+import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.Wallpaper
 import androidx.compose.material.icons.rounded.Warning
-import androidx.compose.material.icons.rounded.Refresh
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledIconButton
@@ -53,8 +59,10 @@ import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import android.widget.Toast
@@ -65,6 +73,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.draw.alpha
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.material.icons.rounded.Warning
 import androidx.compose.ui.Alignment
@@ -85,6 +95,8 @@ import androidx.core.graphics.drawable.toBitmap
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.gestures.rememberTransformableState
@@ -109,7 +121,7 @@ import androidx.compose.material3.ButtonDefaults
 import com.walli.spidermanwallpaper.ui.components.NoInternetState
 import com.walli.spidermanwallpaper.ui.components.EmptyState
 import com.walli.spidermanwallpaper.ui.components.PremiumLoader
-import UnlockPremiumDialog
+
 import com.walli.spidermanwallpaper.util.findActivity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.collectLatest
@@ -123,6 +135,7 @@ import androidx.compose.foundation.gestures.calculateCentroidSize
 import androidx.compose.foundation.gestures.calculatePan
 import androidx.compose.foundation.gestures.calculateRotation
 import androidx.compose.foundation.gestures.calculateZoom
+import com.walli.spidermanwallpaper.ui.components.UnlockPremiumDialog
 
 @OptIn(androidx.compose.animation.ExperimentalSharedTransitionApi::class)
 @Composable
@@ -143,7 +156,7 @@ fun PreviewRoute(
     val isRewardedReady by adsViewModel.isRewardedReady.collectAsStateWithLifecycle()
     var isAdLoading by remember { mutableStateOf(false) }
 
-    val showAdAndUnlock: (com.walli.spidermanwallpaper.domain.model.Wallpaper) -> Unit = { wallpaper ->
+    fun showAdAndUnlock(wallpaper: com.walli.spidermanwallpaper.domain.model.Wallpaper) {
         adsViewModel.showPreviewRewarded(
             activity = activity,
             onReward = {
@@ -154,7 +167,44 @@ fun PreviewRoute(
             },
             onError = { message ->
                 isAdLoading = false
-                Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+                scope.launch {
+                    val result = snackbarHostState.showSnackbar(
+                        message = message,
+                        actionLabel = "Retry",
+                        duration = SnackbarDuration.Long
+                    )
+                    if (result == SnackbarResult.ActionPerformed) {
+                        showAdAndUnlock(wallpaper)
+                    }
+                }
+            }
+        )
+    }
+
+    fun showProToolsAd() {
+        isAdLoading = true
+        adsViewModel.showProToolsRewarded(
+            activity = activity,
+            onReward = {
+                isAdLoading = false
+                viewModel.unlockEditTools()
+                viewModel.setEditMode(true)
+            },
+            onDismiss = {
+                isAdLoading = false
+            },
+            onError = { message ->
+                isAdLoading = false
+                scope.launch {
+                    val result = snackbarHostState.showSnackbar(
+                        message = message,
+                        actionLabel = "Retry",
+                        duration = SnackbarDuration.Long
+                    )
+                    if (result == SnackbarResult.ActionPerformed) {
+                        showProToolsAd()
+                    }
+                }
             }
         )
     }
@@ -198,8 +248,8 @@ fun PreviewRoute(
 
     val pagerState = rememberPagerState(
         initialPage = if (state.items.isEmpty()) 0 else state.initialIndex.coerceIn(0, state.items.lastIndex),
-        pageCount = { 
-            state.items.size 
+        pageCount = {
+            state.items.size
         },
     )
 
@@ -207,9 +257,9 @@ fun PreviewRoute(
         snapshotFlow { pagerState.settledPage }.collectLatest { actualPage ->
             if (state.items.isEmpty()) return@collectLatest
             val imageUrl = state.items[actualPage].imageUrl
-            
+
             viewModel.onPageSettled(actualPage)
-            
+
             // Extract Palette from the current image
             val loader = SingletonImageLoader.get(context)
             val request = ImageRequest.Builder(context)
@@ -217,7 +267,7 @@ fun PreviewRoute(
                 .size(128, 128) // Smaller size is sufficient for Palette extraction
                 .allowHardware(false) // Required to convert to bitmap
                 .build()
-            
+
             val result = loader.execute(request)
             if (result is SuccessResult) {
                 val bitmap = result.image.asDrawable(context.resources).toBitmap()
@@ -337,8 +387,18 @@ fun PreviewRoute(
                 onRetry = null // Network monitor handles it
             )
         } else {
-            val currentTransformation = state.transformations[pagerState.currentPage % state.items.size] ?: ImageTransformation()
-            val userScrollEnabled = currentTransformation.scale <= 1f && currentTransformation.offset == Offset.Zero
+            val actualPage = pagerState.currentPage % state.items.size
+            val wallpaper = state.items[actualPage]
+            val isLocked = wallpaper.isPremium && !wallpaper.isUnlocked
+
+            var isLoaded by remember(wallpaper.id) { mutableStateOf(false) }
+            var retryCount by remember(wallpaper.id) { mutableStateOf(0) }
+
+            val transformation = state.transformations[actualPage] ?: ImageTransformation()
+            val currentTransformationState = rememberUpdatedState(transformation)
+
+            val currentFitTransformation = state.transformations[pagerState.currentPage % state.items.size] ?: ImageTransformation()
+            val userScrollEnabled = currentFitTransformation.scale <= 1f && currentFitTransformation.offset == Offset.Zero
 
             HorizontalPager(
                 state = pagerState,
@@ -349,16 +409,16 @@ fun PreviewRoute(
                 key = { page -> state.items.getOrNull(page % state.items.size)?.id ?: page }
             ) { page ->
                 if (state.items.isEmpty()) return@HorizontalPager
-                val actualPage = page % state.items.size
-                val wallpaper = state.items[actualPage]
-                val isLocked = wallpaper.isPremium && !wallpaper.isUnlocked
+                val actualPageInner = page % state.items.size
+                val wallpaperInner = state.items[actualPageInner]
+                val isLockedInner = wallpaperInner.isPremium && !wallpaperInner.isUnlocked
 
-                var isLoaded by remember(wallpaper.id) { mutableStateOf(false) }
-                var retryCount by remember(wallpaper.id) { mutableStateOf(0) }
+                var isLoadedInner by remember(wallpaperInner.id) { mutableStateOf(false) }
+                var retryCountInner by remember(wallpaperInner.id) { mutableStateOf(0) }
 
-                val transformation = state.transformations[actualPage] ?: ImageTransformation()
-                val currentTransformationState = rememberUpdatedState(transformation)
-                
+                val transformationInner = state.transformations[actualPageInner] ?: ImageTransformation()
+                val currentTransformationStateInner = rememberUpdatedState(transformationInner)
+
                 val placeholder = remember(wallpaper.blurHash) {
                     wallpaper.blurHash?.let {
                         BlurhashDecoder.decode(it, 4, 6)?.asImageBitmap()
@@ -396,14 +456,16 @@ fun PreviewRoute(
                                 onTap = {
                                     if (isLocked) {
                                         viewModel.requestUnlock(actualPage)
+                                    } else if (state.isEditMode) {
+                                        viewModel.setEditMode(false)
                                     } else {
                                         viewModel.toggleControls()
                                     }
                                 }
                             )
                         }
-                        .pointerInput(actualPage, isLoaded, isLocked) {
-                            if (!isLoaded || isLocked) return@pointerInput
+                        .pointerInput(actualPage, isLoaded, isLocked, state.isEditMode) {
+                            if (!isLoaded || isLocked || state.isEditMode) return@pointerInput
                             detectTransformGestures(panZoomLock = false) { centroid, pan, zoom, rotation ->
                                 val current = currentTransformationState.value
                                 // Allow zooming out significantly to see the full image
@@ -427,19 +489,68 @@ fun PreviewRoute(
                 ) {
                     val imageModifier = Modifier
                         .fillMaxSize()
-                        .then(if (isLocked) Modifier.blur(40.dp) else Modifier)
+                        .then(
+                            if (isLockedInner) {
+                                Modifier.blur(40.dp)
+                            } else if (transformationInner.blur > 0f) {
+                                Modifier.blur(transformationInner.blur.dp)
+                            } else {
+                                Modifier
+                            }
+                        )
                         .graphicsLayer {
                             // Scale 1.0 in ViewModel = "Fill Screen" (Crop look)
                             // We multiply by baseScaleFill to convert from 'Fit' to 'Fill'
-                            val currentScale = if (isLoaded || placeholder != null) (transformation.scale * baseScaleFill) else 1f
-                            val currentOffset = if (isLoaded && !isLocked) transformation.offset else Offset.Zero
-                            val currentRotation = if (isLoaded && !isLocked) transformation.rotation else 0f
+                            val currentScale = if (isLoadedInner || placeholder != null) (transformationInner.scale * baseScaleFill) else 1f
+                            val currentOffset = if (isLoadedInner && !isLockedInner) transformationInner.offset else Offset.Zero
+                            val currentRotation = if (isLoadedInner && !isLockedInner) transformationInner.rotation else 0f
                             
                             scaleX = currentScale
                             scaleY = currentScale
                             translationX = currentOffset.x
                             translationY = currentOffset.y
                             rotationZ = currentRotation
+                            
+                            // Apply Color Transformations via ColorMatrix
+                            if (!isLockedInner && (transformationInner.brightness != 1f || transformationInner.contrast != 1f || transformationInner.saturation != 1f || transformationInner.hue != 0f || transformationInner.structure != 0f || transformationInner.details != 0f)) {
+                                val matrix = androidx.compose.ui.graphics.ColorMatrix()
+                                
+                                // 1. Saturation
+                                if (transformationInner.saturation != 1f) {
+                                    matrix.setToSaturation(transformationInner.saturation)
+                                }
+                                
+                                // 2. Brightness & Contrast
+                                if (transformationInner.brightness != 1f || transformationInner.contrast != 1f || transformationInner.structure != 0f || transformationInner.details != 0f) {
+                                    val brightnessOffset = (transformationInner.brightness - 1f) * 255f
+                                    // Simulate Structure and Details with additional contrast boost in preview
+                                    // Make it more aggressive so it's clearly visible
+                                    val effectiveContrast = transformationInner.contrast * (1f + (transformationInner.structure * 0.08f) + (transformationInner.details * 0.04f))
+                                    
+                                    val bcMatrix = androidx.compose.ui.graphics.ColorMatrix(floatArrayOf(
+                                        effectiveContrast, 0f, 0f, 0f, brightnessOffset,
+                                        0f, effectiveContrast, 0f, 0f, brightnessOffset,
+                                        0f, 0f, effectiveContrast, 0f, brightnessOffset,
+                                        0f, 0f, 0f, 1f, 0f
+                                    ))
+                                    matrix.timesAssign(bcMatrix)
+                                }
+                                
+                                // 3. Hue
+                                if (transformationInner.hue != 0f) {
+                                    val hMatrix = androidx.compose.ui.graphics.ColorMatrix()
+                                    // Use individual channel rotations for hue shift as per request
+                                    val redMatrix = androidx.compose.ui.graphics.ColorMatrix().apply { setToRotateRed(transformationInner.hue) }
+                                    val greenMatrix = androidx.compose.ui.graphics.ColorMatrix().apply { setToRotateGreen(transformationInner.hue) }
+                                    val blueMatrix = androidx.compose.ui.graphics.ColorMatrix().apply { setToRotateBlue(transformationInner.hue) }
+                                    
+                                    matrix.timesAssign(redMatrix)
+                                    matrix.timesAssign(greenMatrix)
+                                    matrix.timesAssign(blueMatrix)
+                                }
+                                
+                                colorFilter = androidx.compose.ui.graphics.ColorFilter.colorMatrix(matrix)
+                            }
                             
                             // Explicitly clip to the node's bounds to prevent overlapping during zoom/pan
                             clip = true
@@ -448,7 +559,7 @@ fun PreviewRoute(
                     val sharedImageModifier = if (page == state.initialIndex) {
                         with(sharedTransitionScope) {
                             imageModifier.sharedElement(
-                                rememberSharedContentState(key = "image-${wallpaper.id}"),
+                                rememberSharedContentState(key = "image-${wallpaperInner.id}"),
                                 animatedVisibilityScope = animatedVisibilityScope
                             )
                         }
@@ -458,10 +569,10 @@ fun PreviewRoute(
 
                     // 1. Background Layer (Blurred & Cropped to fill screen)
                     // This provides a nice backdrop when the main image is in 'Fit' mode or zoomed out
-                    if (!isLocked) {
+                    if (!isLockedInner) {
                         coil3.compose.AsyncImage(
                             model = ImageRequest.Builder(context)
-                                .data(wallpaper.thumbnailUrl)
+                                .data(wallpaperInner.thumbnailUrl)
                                 .build(),
                             contentDescription = null,
                             modifier = Modifier
@@ -478,21 +589,21 @@ fun PreviewRoute(
 
                     SubcomposeAsyncImage(
                         model = ImageRequest.Builder(context)
-                            .data(if (isLocked) wallpaper.thumbnailUrl else wallpaper.imageUrl)
+                            .data(if (isLockedInner) wallpaperInner.thumbnailUrl else wallpaperInner.imageUrl)
                             .apply {
-                                if (retryCount > 0) {
+                                if (retryCountInner > 0) {
                                     // Use a unique memory cache key to force reload if retried
-                                    memoryCacheKey("${wallpaper.id}_retry_$retryCount")
+                                    memoryCacheKey("${wallpaperInner.id}_retry_$retryCountInner")
                                 }
                             }
                             .crossfade(true)
                             .build(),
-                        contentDescription = wallpaper.title,
+                        contentDescription = wallpaperInner.title,
                         modifier = sharedImageModifier,
                         contentScale = ContentScale.Fit,
                         alignment = Alignment.Center,
                         onSuccess = { state ->
-                            isLoaded = true
+                            isLoadedInner = true
                             val size = state.painter.intrinsicSize
                             if (size.width > 0 && size.height > 0) {
                                 val scaleX = metrics.widthPixels.toFloat() / size.width
@@ -519,7 +630,7 @@ fun PreviewRoute(
                                 // 2. Thumbnail (Instant Layer - Matches Grid Cache)
                                 coil3.compose.AsyncImage(
                                     model = ImageRequest.Builder(context)
-                                        .data(wallpaper.thumbnailUrl)
+                                        .data(wallpaperInner.thumbnailUrl)
                                         .size(320, 480) // Exact same size as WallpaperCard for cache hit
                                         .precision(coil3.size.Precision.INEXACT)
                                         .build(),
@@ -546,7 +657,7 @@ fun PreviewRoute(
                                         )
                                     ) {
                                         PremiumLoader(
-                                            isPremium = wallpaper.isPremium && !wallpaper.isUnlocked,
+                                            isPremium = wallpaperInner.isPremium && !wallpaperInner.isUnlocked,
                                             color = Color.White
                                         )
                                     }
@@ -568,7 +679,7 @@ fun PreviewRoute(
                                 Spacer(modifier = Modifier.height(8.dp))
                                 Spacer(modifier = Modifier.height(16.dp))
                                 androidx.compose.material3.Button(
-                                    onClick = { retryCount++ },
+                                    onClick = { retryCountInner++ },
                                     colors = androidx.compose.material3.ButtonDefaults.buttonColors(
                                         containerColor = Color.White.copy(alpha = 0.2f),
                                         contentColor = Color.White
@@ -587,8 +698,11 @@ fun PreviewRoute(
                         }
                     )
 
-                    if (isLocked) {
-                        LockedOverlay(onUnlock = { viewModel.requestUnlock(actualPage) })
+                    if (isLockedInner) {
+                        LockedOverlay(
+                            isLoading = isAdLoading && state.wallpaperToUnlock?.id == wallpaperInner.id,
+                            onUnlock = { viewModel.requestUnlock(actualPageInner) }
+                        )
                     }
 
                     Box(
@@ -636,7 +750,7 @@ fun PreviewRoute(
                             Icon(Icons.Rounded.ArrowBack, contentDescription = "Back")
                         }
                         Spacer(modifier = Modifier.weight(1f))
-                        
+
                         // Reset Button
                         val actualTransformation = state.transformations[actualPage]
                         if (actualTransformation != null && (actualTransformation.scale != 1f || actualTransformation.offset != Offset.Zero || actualTransformation.rotation != 0f)) {
@@ -672,9 +786,9 @@ fun PreviewRoute(
 
             // Bottom Controls
             AnimatedVisibility(
-                visible = state.controlsVisible,
-                enter = fadeIn(),
-                exit = fadeOut(),
+                visible = state.controlsVisible && !state.isEditMode,
+                enter = fadeIn() + slideInVertically(initialOffsetY = { it }),
+                exit = fadeOut() + slideOutVertically(targetOffsetY = { it }),
                 modifier = Modifier.align(Alignment.BottomCenter),
             ) {
                 if (state.items.isNotEmpty()) {
@@ -700,7 +814,7 @@ fun PreviewRoute(
                                     modifier = Modifier.padding(bottom = 12.dp),
                                 )
                             }
-                            
+
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -772,11 +886,28 @@ fun PreviewRoute(
                                         if (current.isPremium && !current.isUnlocked) {
                                             viewModel.requestUnlock(actualPage)
                                         } else {
+                                            isAdLoading = true
                                             adsViewModel.showDownloadRewarded(
                                                 activity = activity,
-                                                onReward = action,
+                                                onReward = {
+                                                    isAdLoading = false
+                                                    action()
+                                                },
+                                                onDismiss = {
+                                                    isAdLoading = false
+                                                },
                                                 onError = { message ->
-                                                    android.widget.Toast.makeText(context, message, android.widget.Toast.LENGTH_LONG).show()
+                                                    isAdLoading = false
+                                                    scope.launch {
+                                                        val result = snackbarHostState.showSnackbar(
+                                                            message = message,
+                                                            actionLabel = "Retry",
+                                                            duration = SnackbarDuration.Long
+                                                        )
+                                                        if (result == SnackbarResult.ActionPerformed) {
+                                                            action()
+                                                        }
+                                                    }
                                                 }
                                             )
                                         }
@@ -786,17 +917,26 @@ fun PreviewRoute(
                                     colors = androidx.compose.material3.ButtonDefaults.filledTonalButtonColors(
                                         containerColor = onDominantColor.copy(alpha = 0.15f),
                                         contentColor = onDominantColor
-                                    )
+                                    ),
+                                    enabled = !isAdLoading
                                 ) {
-                                    Icon(
-                                        imageVector = Icons.Rounded.Download,
-                                        contentDescription = "Download",
-                                        modifier = Modifier.size(20.dp)
-                                    )
+                                    if (isAdLoading && current.isPremium && !current.isUnlocked) {
+                                         CircularProgressIndicator(
+                                            modifier = Modifier.size(18.dp),
+                                            strokeWidth = 2.dp,
+                                            color = onDominantColor
+                                        )
+                                    } else {
+                                        Icon(
+                                            imageVector = Icons.Rounded.Download,
+                                            contentDescription = "Download",
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                    }
                                     if (showLabels) {
                                         Spacer(Modifier.width(6.dp))
                                         Text(
-                                            text = "Download",
+                                            text = if (isAdLoading && current.isPremium && !current.isUnlocked) "Loading..." else "Download",
                                             style = MaterialTheme.typography.labelMedium,
                                             maxLines = 1,
                                             overflow = TextOverflow.Ellipsis,
@@ -824,16 +964,6 @@ fun PreviewRoute(
                                         contentDescription = "Set",
                                         modifier = Modifier.size(20.dp)
                                     )
-                                    if (showLabels) {
-                                        Spacer(Modifier.width(6.dp))
-                                        Text(
-                                            text = "Set",
-                                            style = MaterialTheme.typography.labelMedium,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis,
-                                            softWrap = false
-                                        )
-                                    }
                                 }
                                 FilledIconButton(
                                     onClick = { viewModel.toggleFavorite(actualPage) },
@@ -870,6 +1000,20 @@ fun PreviewRoute(
                                     Icon(
                                         imageVector = Icons.Rounded.Share,
                                         contentDescription = "Share",
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+                                FilledIconButton(
+                                    onClick = { viewModel.setEditMode(!state.isEditMode) },
+                                    modifier = Modifier.size(44.dp),
+                                    colors = IconButtonDefaults.filledIconButtonColors(
+                                        containerColor = if (state.isEditMode) onDominantColor else onDominantColor.copy(alpha = 0.15f),
+                                        contentColor = if (state.isEditMode) animatedDominantColor else onDominantColor
+                                    )
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.AutoFixHigh,
+                                        contentDescription = "Edit Tools",
                                         modifier = Modifier.size(20.dp)
                                     )
                                 }
@@ -934,7 +1078,7 @@ fun PreviewRoute(
                                 color = onDominantColor,
                                 label = null // Just the spinner here
                             )
-                            
+
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                 Text(
                                     text = state.workingLabel ?: "Processing…",
@@ -943,7 +1087,7 @@ fun PreviewRoute(
                                     fontWeight = FontWeight.ExtraBold,
                                 )
                             }
-                            
+
                             // "Progressing" feel with a sleek linear bar
                             LinearProgressIndicator(
                                 modifier = Modifier
@@ -961,8 +1105,188 @@ fun PreviewRoute(
 
         SnackbarHost(
             hostState = snackbarHostState,
-            modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 100.dp)
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .navigationBarsPadding()
+                .padding(bottom = if (state.isEditMode && state.controlsVisible) 240.dp else 112.dp)
         )
+
+        val actualPage = pagerState.currentPage % state.items.size
+        val transformation = state.transformations[actualPage] ?: ImageTransformation()
+        var selectedTool by rememberSaveable { mutableStateOf("Brightness") }
+
+        AnimatedVisibility(
+            visible = state.isEditMode && state.controlsVisible,
+            enter = fadeIn() + slideInVertically(initialOffsetY = { it }),
+            exit = fadeOut() + slideOutVertically(targetOffsetY = { it }),
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .navigationBarsPadding()
+                .padding(horizontal = 16.dp)
+                .padding(bottom = 16.dp)
+        ) {
+            Surface(
+                shape = RoundedCornerShape(28.dp),
+                color = animatedDominantColor.copy(alpha = 0.92f),
+                tonalElevation = 12.dp,
+                shadowElevation = 8.dp
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    // Tool Selector
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState())
+                            .padding(horizontal = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        IconButton(
+                            onClick = { viewModel.resetTransformation(actualPage) },
+                            modifier = Modifier.size(32.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Refresh,
+                                contentDescription = "Reset",
+                                tint = onDominantColor.copy(alpha = 0.7f),
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+
+                        listOf("Brightness", "Contrast", "Saturation", "Hue", "Blur", "Structure", "Details").forEach { tool ->
+                            val isSelected = selectedTool == tool
+                            val isLocked = tool != "Brightness" && !state.areEditToolsUnlocked
+                            
+                            Surface(
+                                onClick = { selectedTool = tool },
+                                shape = RoundedCornerShape(16.dp),
+                                color = if (isSelected) onDominantColor else Color.Transparent,
+                                contentColor = if (isSelected) animatedDominantColor else onDominantColor,
+                                modifier = Modifier.height(40.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 12.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.Center
+                                ) {
+                                    if (isLocked) {
+                                        Icon(Icons.Rounded.Lock, null, modifier = Modifier.size(14.dp))
+                                        Spacer(Modifier.width(6.dp))
+                                    }
+                                    Text(
+                                        text = tool,
+                                        style = MaterialTheme.typography.labelLarge,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                                    )
+                                }
+                            }
+                        }
+                        
+                        IconButton(
+                            onClick = { viewModel.setEditMode(false) },
+                            modifier = Modifier.size(32.dp)
+                        ) {
+                            Icon(Icons.Rounded.Close, null, tint = onDominantColor.copy(alpha = 0.7f), modifier = Modifier.size(20.dp))
+                        }
+                    }
+
+                    // Active Slider
+                    when (selectedTool) {
+                        "Brightness" -> EditSlider(
+                            label = "Brightness",
+                            value = transformation.brightness,
+                            range = 0.5f..1.5f,
+                            onValueChange = { viewModel.updateTransformation(actualPage, brightness = it) },
+                            color = onDominantColor,
+                            isLocked = false
+                        )
+                        "Contrast" -> EditSlider(
+                            label = "Contrast",
+                            value = transformation.contrast,
+                            range = 0.5f..1.5f,
+                            onValueChange = { viewModel.updateTransformation(actualPage, contrast = it) },
+                            color = onDominantColor,
+                            isLocked = !state.areEditToolsUnlocked
+                        )
+                        "Saturation" -> EditSlider(
+                            label = "Saturation",
+                            value = transformation.saturation,
+                            range = 0f..2f,
+                            onValueChange = { viewModel.updateTransformation(actualPage, saturation = it) },
+                            color = onDominantColor,
+                            isLocked = !state.areEditToolsUnlocked
+                        )
+                        "Hue" -> EditSlider(
+                            label = "Hue",
+                            value = transformation.hue,
+                            range = 0f..360f,
+                            onValueChange = { viewModel.updateTransformation(actualPage, hue = it) },
+                            color = onDominantColor,
+                            isLocked = !state.areEditToolsUnlocked
+                        )
+                        "Blur" -> EditSlider(
+                            label = "Blur",
+                            value = transformation.blur,
+                            range = 0f..25f,
+                            onValueChange = { viewModel.updateTransformation(actualPage, blur = it) },
+                            color = onDominantColor,
+                            isLocked = !state.areEditToolsUnlocked
+                        )
+                        "Structure" -> EditSlider(
+                            label = "Structure",
+                            value = transformation.structure,
+                            range = 0f..10f,
+                            onValueChange = { viewModel.updateTransformation(actualPage, structure = it) },
+                            color = onDominantColor,
+                            isLocked = !state.areEditToolsUnlocked
+                        )
+                        "Details" -> EditSlider(
+                            label = "Details",
+                            value = transformation.details,
+                            range = 0f..10f,
+                            onValueChange = { viewModel.updateTransformation(actualPage, details = it) },
+                            color = onDominantColor,
+                            isLocked = !state.areEditToolsUnlocked
+                        )
+                    }
+                    
+                    if (!state.areEditToolsUnlocked && selectedTool != "Brightness") {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 8.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            FilledTonalButton(
+                                onClick = { showProToolsAd() },
+                                shape = RoundedCornerShape(12.dp),
+                                colors = ButtonDefaults.filledTonalButtonColors(
+                                    containerColor = onDominantColor,
+                                    contentColor = animatedDominantColor
+                                ),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Icon(Icons.Rounded.Lock, null, modifier = Modifier.size(18.dp))
+                                Spacer(Modifier.width(8.dp))
+                                Text("Unlock All Pro Tools", fontWeight = FontWeight.Bold)
+                            }
+
+                            Text(
+                                text = "Watch rewarded ad to unlock editing tools for 24 hours",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = onDominantColor.copy(alpha = 0.7f),
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                            )
+                        }
+                    }
+                }
+            }
+        }
     }
 
     state.wallpaperToUnlock?.let { wallpaper ->
@@ -985,7 +1309,71 @@ fun PreviewRoute(
 }
 
 @Composable
+private fun EditSlider(
+    label: String,
+    value: Float,
+    range: ClosedFloatingPointRange<Float>,
+    onValueChange: (Float) -> Unit,
+    color: Color,
+    isLocked: Boolean = false,
+    onLockClick: () -> Unit = {}
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(enabled = isLocked, onClick = onLockClick)
+            .alpha(if (isLocked) 0.5f else 1f)
+            .padding(vertical = 4.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.labelLarge,
+                    color = color
+                )
+                if (isLocked) {
+                    Spacer(Modifier.width(6.dp))
+                    Icon(
+                        imageVector = Icons.Rounded.Lock,
+                        contentDescription = "Locked",
+                        tint = color,
+                        modifier = Modifier.size(12.dp)
+                    )
+                }
+            }
+            Text(
+                text = if (label == "Blur") String.format("%.0f", value) else String.format("%.2f", value),
+                style = MaterialTheme.typography.labelMedium,
+                color = color,
+                fontWeight = FontWeight.Bold
+            )
+        }
+        Slider(
+            value = value,
+            onValueChange = if (isLocked) ({}) else onValueChange,
+            valueRange = range,
+            enabled = !isLocked,
+            colors = SliderDefaults.colors(
+                thumbColor = color,
+                activeTrackColor = color,
+                inactiveTrackColor = color.copy(alpha = 0.2f),
+                disabledThumbColor = color.copy(alpha = 0.5f),
+                disabledActiveTrackColor = color.copy(alpha = 0.3f)
+            ),
+            modifier = Modifier.height(36.dp)
+        )
+    }
+}
+
+@Composable
 private fun LockedOverlay(
+    isLoading: Boolean = false,
     onUnlock: () -> Unit
 ) {
     Box(
@@ -1009,12 +1397,20 @@ private fun LockedOverlay(
                 modifier = Modifier.size(80.dp)
             ) {
                 Box(contentAlignment = Alignment.Center) {
-                    Icon(
-                        imageVector = Icons.Rounded.Lock,
-                        contentDescription = null,
-                        tint = Color.White,
-                        modifier = Modifier.size(40.dp)
-                    )
+                    if (isLoading) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(32.dp),
+                            color = Color.White,
+                            strokeWidth = 3.dp
+                        )
+                    } else {
+                        Icon(
+                            imageVector = Icons.Rounded.Lock,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(40.dp)
+                        )
+                    }
                 }
             }
             
@@ -1027,15 +1423,26 @@ private fun LockedOverlay(
             
             FilledTonalButton(
                 onClick = onUnlock,
+                enabled = !isLoading,
                 colors = ButtonDefaults.filledTonalButtonColors(
                     containerColor = MaterialTheme.colorScheme.primary,
                     contentColor = MaterialTheme.colorScheme.onPrimary
                 ),
                 shape = RoundedCornerShape(16.dp)
             ) {
-                Icon(Icons.Rounded.Wallpaper, contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(Modifier.width(8.dp))
-                Text("Unlock to View")
+                if (isLoading) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(18.dp),
+                        strokeWidth = 2.dp,
+                        color = MaterialTheme.colorScheme.onPrimary
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text("Loading...")
+                } else {
+                    Icon(Icons.Rounded.Wallpaper, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text("Unlock to View")
+                }
             }
         }
     }

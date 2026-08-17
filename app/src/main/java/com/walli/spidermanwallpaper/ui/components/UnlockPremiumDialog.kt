@@ -1,7 +1,11 @@
+package com.walli.spidermanwallpaper.ui.components
+
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -22,7 +26,7 @@ fun UnlockPremiumDialog(
     onUnlock: () -> Unit,
 ) {
     AlertDialog(
-        onDismissRequest = if (isLoading) ({}) else onDismiss,
+        onDismissRequest = onDismiss,
         title = { Text("Unlock Premium Wallpaper") },
         text = {
             if (isLoading) {
@@ -42,17 +46,27 @@ fun UnlockPremiumDialog(
             }
         },
         confirmButton = {
-            if (!isLoading) {
-                Button(onClick = onUnlock) {
-                    Text("Watch Ad & Unlock")
+            Button(
+                onClick = onUnlock,
+                enabled = !isLoading,
+            ) {
+                if (isLoading) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(18.dp),
+                        strokeWidth = 2.dp,
+                        color = MaterialTheme.colorScheme.onPrimary
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
                 }
+                Text(if (isLoading) "Loading Ad..." else "Watch Ad & Unlock")
             }
         },
         dismissButton = {
-            if (!isLoading) {
-                TextButton(onClick = onDismiss) {
-                    Text("Cancel")
-                }
+            TextButton(
+                onClick = onDismiss,
+                // Cancel button stays enabled as per UX requirements
+            ) {
+                Text("Cancel")
             }
         }
     )

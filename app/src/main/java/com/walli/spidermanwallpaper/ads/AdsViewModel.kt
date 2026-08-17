@@ -78,5 +78,14 @@ class AdsViewModel @Inject constructor(
         adMobManager.showDownloadRewarded(activity, onReward, onDismiss, onError)
     }
 
+    fun showProToolsRewarded(
+        activity: Activity?,
+        onReward: () -> Unit,
+        onDismiss: () -> Unit = {},
+        onError: (String) -> Unit = {}
+    ) {
+        adMobManager.showProToolsRewarded(activity, onReward, onDismiss, onError)
+    }
+
     fun getNativeAd(adUnitId: String, key: String? = null) = adMobManager.getNativeAd(adUnitId, key)
 }

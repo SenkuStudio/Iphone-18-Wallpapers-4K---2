@@ -1,6 +1,6 @@
 package com.walli.spidermanwallpaper.ui.screens.category_wallpapers
 
-import UnlockPremiumDialog
+
 import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.foundation.background
@@ -40,7 +40,8 @@ import com.walli.spidermanwallpaper.ui.components.EmptyState
 import com.walli.spidermanwallpaper.ui.components.NoInternetState
 import com.walli.spidermanwallpaper.ui.components.WallpaperCard
 import com.walli.spidermanwallpaper.ui.components.WallpaperCardShimmer
-import UnlockPremiumDialog
+
+import com.walli.spidermanwallpaper.ui.components.UnlockPremiumDialog
 import com.walli.spidermanwallpaper.ui.screens.home.HomeUiState
 import com.walli.spidermanwallpaper.ui.screens.home.HomeViewModel
 import com.walli.spidermanwallpaper.util.findActivity

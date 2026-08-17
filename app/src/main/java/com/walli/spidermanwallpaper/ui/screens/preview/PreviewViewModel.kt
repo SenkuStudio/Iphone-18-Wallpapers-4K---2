@@ -28,6 +28,13 @@ data class ImageTransformation(
     val scale: Float = 1f,
     val offset: Offset = Offset.Zero,
     val rotation: Float = 0f,
+    val brightness: Float = 1f,
+    val contrast: Float = 1f,
+    val blur: Float = 0f,
+    val saturation: Float = 1f,
+    val hue: Float = 0f,
+    val structure: Float = 0f,
+    val details: Float = 0f,
 )
 
 data class PreviewUiState(
@@ -41,6 +48,8 @@ data class PreviewUiState(
     val transformations: Map<Int, ImageTransformation> = emptyMap(),
     val wallpaperToUnlock: Wallpaper? = null,
     val wallpaperApplied: Boolean = false,
+    val isEditMode: Boolean = false,
+    val areEditToolsUnlocked: Boolean = false,
 )
 
 @HiltViewModel
@@ -71,10 +80,12 @@ class PreviewViewModel @Inject constructor(
             combine(
                 previewSessionManager.session,
                 observeFavoriteIdsUseCase(),
-                wallpaperPreferences.unlockedWallpaperIds
-            ) { session, favorites, unlocks ->
-                Triple(session, favorites, unlocks)
-            }.collect { (session, favorites, unlocks) ->
+                wallpaperPreferences.unlockedWallpaperIds,
+                wallpaperPreferences.editToolsUnlockTime
+            ) { session, favorites, unlocks, editUnlockTime ->
+                val isEditUnlocked = System.currentTimeMillis() - editUnlockTime < 24 * 60 * 60 * 1000
+                Quadruple(session, favorites, unlocks, isEditUnlocked)
+            }.collect { (session, favorites, unlocks, isEditUnlocked) ->
                 favoriteIds = favorites
                 unlockedIds = unlocks
                 _uiState.update { current ->
@@ -86,11 +97,14 @@ class PreviewViewModel @Inject constructor(
                             )
                         },
                         initialIndex = session.initialIndex,
+                        areEditToolsUnlocked = isEditUnlocked
                     )
                 }
             }
         }
     }
+
+    private data class Quadruple<A, B, C, D>(val a: A, val b: B, val c: C, val d: D)
 
     private fun observeNetwork() {
         viewModelScope.launch {
@@ -112,6 +126,12 @@ class PreviewViewModel @Inject constructor(
         viewModelScope.launch {
             val wallpaper = _uiState.value.items.getOrNull(index) ?: return@launch
             saveRecentWallpaperUseCase(wallpaper)
+            
+            // Automatically reset transformations and exit edit mode when moving to a new image
+            _uiState.update { it.copy(
+                transformations = emptyMap(),
+                isEditMode = false
+            ) }
             
             // Check if we need to load more items
             val session = previewSessionManager.session.value
@@ -181,6 +201,13 @@ class PreviewViewModel @Inject constructor(
                 offsetX = transformation.offset.x,
                 offsetY = transformation.offset.y,
                 rotation = transformation.rotation,
+                brightness = transformation.brightness,
+                contrast = transformation.contrast,
+                blur = transformation.blur,
+                saturation = transformation.saturation,
+                hue = transformation.hue,
+                structure = transformation.structure,
+                details = transformation.details,
                 applier = wallpaperApplier
             )
                 .onSuccess {
@@ -194,11 +221,45 @@ class PreviewViewModel @Inject constructor(
         }
     }
 
-    fun updateTransformation(index: Int, scale: Float, offset: Offset, rotation: Float) {
+    fun updateTransformation(
+        index: Int,
+        scale: Float? = null,
+        offset: Offset? = null,
+        rotation: Float? = null,
+        brightness: Float? = null,
+        contrast: Float? = null,
+        blur: Float? = null,
+        saturation: Float? = null,
+        hue: Float? = null,
+        structure: Float? = null,
+        details: Float? = null,
+    ) {
         _uiState.update { current ->
-            current.copy(
-                transformations = current.transformations + (index to ImageTransformation(scale, offset, rotation))
+            val transformations = current.transformations.toMutableMap()
+            val existing = transformations[index] ?: ImageTransformation()
+            transformations[index] = existing.copy(
+                scale = scale ?: existing.scale,
+                offset = offset ?: existing.offset,
+                rotation = rotation ?: existing.rotation,
+                brightness = brightness ?: existing.brightness,
+                contrast = contrast ?: existing.contrast,
+                blur = blur ?: existing.blur,
+                saturation = saturation ?: existing.saturation,
+                hue = hue ?: existing.hue,
+                structure = structure ?: existing.structure,
+                details = details ?: existing.details,
             )
+            current.copy(transformations = transformations)
+        }
+    }
+
+    fun setEditMode(enabled: Boolean) {
+        _uiState.update { it.copy(isEditMode = enabled) }
+    }
+
+    fun unlockEditTools() {
+        viewModelScope.launch {
+            wallpaperPreferences.unlockEditTools()
         }
     }
 
@@ -242,7 +303,14 @@ class PreviewViewModel @Inject constructor(
                 scale = transformation.scale,
                 offsetX = transformation.offset.x,
                 offsetY = transformation.offset.y,
-                rotation = transformation.rotation
+                rotation = transformation.rotation,
+                brightness = transformation.brightness,
+                contrast = transformation.contrast,
+                blur = transformation.blur,
+                saturation = transformation.saturation,
+                hue = transformation.hue,
+                structure = transformation.structure,
+                details = transformation.details,
             )
                 .onSuccess {
                     setMessage("Wallpaper applied to ${target.label.lowercase()}")
@@ -267,6 +335,13 @@ class PreviewViewModel @Inject constructor(
                 offsetX = transformation.offset.x,
                 offsetY = transformation.offset.y,
                 rotation = transformation.rotation,
+                brightness = transformation.brightness,
+                contrast = transformation.contrast,
+                blur = transformation.blur,
+                saturation = transformation.saturation,
+                hue = transformation.hue,
+                structure = transformation.structure,
+                details = transformation.details,
                 applier = wallpaperApplier
             )
                 .onFailure { throwable ->

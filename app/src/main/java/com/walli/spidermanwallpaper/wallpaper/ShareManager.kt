@@ -27,6 +27,13 @@ class ShareManager @Inject constructor(
         offsetX: Float = 0f,
         offsetY: Float = 0f,
         rotation: Float = 0f,
+        brightness: Float = 1f,
+        contrast: Float = 1f,
+        blur: Float = 0f,
+        saturation: Float = 1f,
+        hue: Float = 0f,
+        structure: Float = 0f,
+        details: Float = 0f,
         applier: WallpaperApplier? = null
     ): Result<Unit> = withContext(Dispatchers.IO) {
         runCatching {
@@ -37,10 +44,15 @@ class ShareManager @Inject constructor(
             val shareDir = File(context.cacheDir, "shared").apply { mkdirs() }
             val file = File(shareDir, "${title.asSafeFileName()}.jpg")
 
-            if (scale != 1f || offsetX != 0f || offsetY != 0f || rotation != 0f) {
+            if (scale != 1f || offsetX != 0f || offsetY != 0f || rotation != 0f ||
+                brightness != 1f || contrast != 1f || blur != 0f || saturation != 1f || hue != 0f ||
+                structure != 0f || details != 0f) {
                 val stream = response.body?.byteStream() ?: error("Empty image body")
                 val originalBitmap = BitmapFactory.decodeStream(stream) ?: error("Unable to decode bitmap")
-                val transformedBitmap = applier?.transformBitmap(originalBitmap, scale, offsetX, offsetY, rotation) ?: originalBitmap
+                val transformedBitmap = applier?.transformBitmap(
+                    originalBitmap, scale, offsetX, offsetY, rotation,
+                    brightness, contrast, blur, saturation, hue, structure, details
+                ) ?: originalBitmap
                 
                 file.outputStream().use { output ->
                     transformedBitmap.compress(Bitmap.CompressFormat.JPEG, 100, output)

@@ -46,12 +46,13 @@ class AdMobManager @Inject constructor(
     private var categoryRewardedAd: RewardedAd? = null
     private var previewRewardedAd: RewardedAd? = null
     private var downloadRewardedAd: RewardedAd? = null
-    
+    private var proToolsRewardedAd: RewardedAd? = null
+
     // Multiple pools for unique Ad IDs
     private val nativeAdsPools = mutableMapOf<String, MutableList<NativeAd>>()
     private val assignedNativeAds = mutableMapOf<String, NativeAd>()
-    private val maxNativeAdsPerId = 3
-    private val maxConcurrentLoads = 2
+    private val maxNativeAdsPerId = 5
+    private val maxConcurrentLoads = 4
     private var globalNativeLoadingCount = 0
     private val TAG = "AdMobManager"
     
@@ -93,6 +94,7 @@ class AdMobManager @Inject constructor(
         loadRewarded(BuildConfig.ADMOB_REWARDED_CATEGORY) { categoryRewardedAd = it }
         loadRewarded(BuildConfig.ADMOB_REWARDED_PREVIEW) { previewRewardedAd = it }
         loadRewarded(BuildConfig.ADMOB_REWARDED_DOWNLOAD) { downloadRewardedAd = it }
+        loadRewarded(BuildConfig.ADMOB_REWARDED_PRO_TOOLS) { proToolsRewardedAd = it }
         
         // Initial pool fill for all native IDs
         loadNativeAd(BuildConfig.ADMOB_NATIVE_HOME)
@@ -180,6 +182,10 @@ class AdMobManager @Inject constructor(
         showRewarded(activity, downloadRewardedAd, { downloadRewardedAd = null }, BuildConfig.ADMOB_REWARDED_DOWNLOAD, onReward, onDismiss, onError)
     }
 
+    fun showProToolsRewarded(activity: Activity?, onReward: () -> Unit, onDismiss: () -> Unit = {}, onError: (String) -> Unit = {}) {
+        showRewarded(activity, proToolsRewardedAd, { proToolsRewardedAd = null }, BuildConfig.ADMOB_REWARDED_PRO_TOOLS, onReward, onDismiss, onError)
+    }
+
     private fun showRewarded(
         activity: Activity?,
         ad: RewardedAd?,
@@ -195,13 +201,14 @@ class AdMobManager @Inject constructor(
         }
 
         if (ad == null) {
-            onError("Ad is not ready yet. Please check your internet connection and try again.")
+            onError("Spider-Sense is tingling! The reward isn't ready yet. Check your connection or try again in a moment.")
             if (isAppInForeground) loadRewarded(adUnitId) {
                 when (adUnitId) {
                     BuildConfig.ADMOB_REWARDED_HOME -> homeRewardedAd = it
                     BuildConfig.ADMOB_REWARDED_CATEGORY -> categoryRewardedAd = it
                     BuildConfig.ADMOB_REWARDED_PREVIEW -> previewRewardedAd = it
                     BuildConfig.ADMOB_REWARDED_DOWNLOAD -> downloadRewardedAd = it
+                    BuildConfig.ADMOB_REWARDED_PRO_TOOLS -> proToolsRewardedAd = it
                 }
             }
             return
@@ -217,6 +224,7 @@ class AdMobManager @Inject constructor(
                         BuildConfig.ADMOB_REWARDED_CATEGORY -> categoryRewardedAd = it
                         BuildConfig.ADMOB_REWARDED_PREVIEW -> previewRewardedAd = it
                         BuildConfig.ADMOB_REWARDED_DOWNLOAD -> downloadRewardedAd = it
+                        BuildConfig.ADMOB_REWARDED_PRO_TOOLS -> proToolsRewardedAd = it
                     }
                 }
                 onDismiss()
@@ -231,6 +239,7 @@ class AdMobManager @Inject constructor(
                         BuildConfig.ADMOB_REWARDED_CATEGORY -> categoryRewardedAd = it
                         BuildConfig.ADMOB_REWARDED_PREVIEW -> previewRewardedAd = it
                         BuildConfig.ADMOB_REWARDED_DOWNLOAD -> downloadRewardedAd = it
+                        BuildConfig.ADMOB_REWARDED_PRO_TOOLS -> proToolsRewardedAd = it
                     }
                 }
                 onError("Failed to show ad. Please check your internet connection.")
@@ -289,6 +298,8 @@ class AdMobManager @Inject constructor(
         val adOptions = NativeAdOptions.Builder()
             .setAdChoicesPlacement(NativeAdOptions.ADCHOICES_TOP_RIGHT)
             .setVideoOptions(VideoOptions.Builder().setStartMuted(true).build())
+            .setRequestMultipleImages(false)
+            .setReturnUrlsForImageAssets(false)
             .build()
 
         globalNativeLoadingCount++
