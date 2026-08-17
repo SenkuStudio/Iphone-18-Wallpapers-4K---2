@@ -118,16 +118,20 @@ class WallpaperApplier @Inject constructor(
             cm.postConcat(bcMatrix)
         }
 
-        // 3. Hue (Rotation)
+        // 3. Hue (Rotation around luminance axis)
         if (hue != 0f) {
-            val hueMatrix = ColorMatrix()
-            // Hue rotation is done by rotating R, G, B channels.
-            // We use individual rotations to match the Compose UI implementation.
-            hueMatrix.setRotate(0, hue)
-            cm.postConcat(hueMatrix)
-            hueMatrix.setRotate(1, hue)
-            cm.postConcat(hueMatrix)
-            hueMatrix.setRotate(2, hue)
+            val cosVal = kotlin.math.cos(Math.toRadians(hue.toDouble())).toFloat()
+            val sinVal = kotlin.math.sin(Math.toRadians(hue.toDouble())).toFloat()
+            val lumR = 0.213f
+            val lumG = 0.715f
+            val lumB = 0.072f
+            
+            val hueMatrix = ColorMatrix(floatArrayOf(
+                lumR + cosVal * (1 - lumR) + sinVal * (-lumR), lumG + cosVal * (-lumG) + sinVal * (-lumG), lumB + cosVal * (-lumB) + sinVal * (1 - lumB), 0f, 0f,
+                lumR + cosVal * (-lumR) + sinVal * (0.143f), lumG + cosVal * (1 - lumG) + sinVal * (0.140f), lumB + cosVal * (-lumB) + sinVal * (-0.283f), 0f, 0f,
+                lumR + cosVal * (-lumR) + sinVal * (-(1 - lumR)), lumG + cosVal * (-lumG) + sinVal * (lumG), lumB + cosVal * (1 - lumB) + sinVal * (lumB), 0f, 0f,
+                0f, 0f, 0f, 1f, 0f
+            ))
             cm.postConcat(hueMatrix)
         }
 
@@ -201,7 +205,7 @@ class WallpaperApplier @Inject constructor(
 
             if (details > 0f) {
                 // Sharpening: Small radius high pass
-                val hp = createHighPass(finalResult, 0.8f * density)
+                val hp = createHighPass(finalResult, 1.2f * density)
                 val output = Bitmap.createBitmap(screenWidth, screenHeight, Bitmap.Config.ARGB_8888)
                 val canvas = Canvas(output)
                 canvas.drawBitmap(finalResult, 0f, 0f, null)
@@ -220,7 +224,7 @@ class WallpaperApplier @Inject constructor(
 
             if (structure > 0f) {
                 // Structure: Large radius high pass for local contrast
-                val hp = createHighPass(finalResult, 12f * density)
+                val hp = createHighPass(finalResult, 8f * density)
                 val output = Bitmap.createBitmap(screenWidth, screenHeight, Bitmap.Config.ARGB_8888)
                 val canvas = Canvas(output)
                 canvas.drawBitmap(finalResult, 0f, 0f, null)

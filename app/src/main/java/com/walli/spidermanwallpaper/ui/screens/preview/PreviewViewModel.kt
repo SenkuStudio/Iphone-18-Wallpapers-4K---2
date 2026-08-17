@@ -274,13 +274,21 @@ class PreviewViewModel @Inject constructor(
     fun handleDoubleTap(index: Int, tapOffset: Offset = Offset.Zero, center: Offset = Offset.Zero) {
         _uiState.update { current ->
             val currentTransformation = current.transformations[index] ?: ImageTransformation()
-            val newTransformation = if (currentTransformation.scale > 1f) {
-                ImageTransformation() // Reset to 1x
+            val newTransformation = if (currentTransformation.scale > 1.05f) { // Slightly more than 1 to handle precision
+                ImageTransformation(
+                    brightness = currentTransformation.brightness,
+                    contrast = currentTransformation.contrast,
+                    blur = currentTransformation.blur,
+                    saturation = currentTransformation.saturation,
+                    hue = currentTransformation.hue,
+                    structure = currentTransformation.structure,
+                    details = currentTransformation.details
+                )
             } else {
                 val targetScale = 2.5f
                 // Zoom at tap location relative to center pivot
                 val newOffset = (tapOffset - center) * (1f - targetScale)
-                ImageTransformation(scale = targetScale, offset = newOffset)
+                currentTransformation.copy(scale = targetScale, offset = newOffset)
             }
             current.copy(
                 transformations = current.transformations + (index to newTransformation)

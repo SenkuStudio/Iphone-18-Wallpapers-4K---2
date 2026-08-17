@@ -76,7 +76,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.draw.alpha
 import androidx.compose.runtime.snapshotFlow
-import androidx.compose.material.icons.rounded.Warning
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
@@ -116,7 +115,6 @@ import coil3.request.crossfade
 import com.walli.spidermanwallpaper.BuildConfig
 import com.walli.spidermanwallpaper.ads.AdsViewModel
 import com.walli.spidermanwallpaper.domain.model.WallpaperTarget
-import androidx.compose.ui.draw.blur
 import androidx.compose.material3.ButtonDefaults
 import com.walli.spidermanwallpaper.ui.components.NoInternetState
 import com.walli.spidermanwallpaper.ui.components.EmptyState
@@ -397,15 +395,12 @@ fun PreviewRoute(
             val transformation = state.transformations[actualPage] ?: ImageTransformation()
             val currentTransformationState = rememberUpdatedState(transformation)
 
-            val currentFitTransformation = state.transformations[pagerState.currentPage % state.items.size] ?: ImageTransformation()
-            val userScrollEnabled = currentFitTransformation.scale <= 1f && currentFitTransformation.offset == Offset.Zero
-
             HorizontalPager(
                 state = pagerState,
                 beyondViewportPageCount = 1,
                 pageSpacing = 16.dp,
                 modifier = Modifier.fillMaxSize(),
-                userScrollEnabled = userScrollEnabled,
+                userScrollEnabled = false,
                 key = { page -> state.items.getOrNull(page % state.items.size)?.id ?: page }
             ) { page ->
                 if (state.items.isEmpty()) return@HorizontalPager
@@ -419,8 +414,8 @@ fun PreviewRoute(
                 val transformationInner = state.transformations[actualPageInner] ?: ImageTransformation()
                 val currentTransformationStateInner = rememberUpdatedState(transformationInner)
 
-                val placeholder = remember(wallpaper.blurHash) {
-                    wallpaper.blurHash?.let {
+                val placeholder = remember(wallpaperInner.blurHash) {
+                    wallpaperInner.blurHash?.let {
                         BlurhashDecoder.decode(it, 4, 6)?.asImageBitmap()
                     }
                 }
@@ -428,7 +423,7 @@ fun PreviewRoute(
                 // Calculate the scale needed to go from 'Fit' to 'Fill' (Crop)
                 // We use the placeholder's aspect ratio to get an immediate estimate to avoid jumping
                 val metrics = LocalContext.current.resources.displayMetrics
-                var baseScaleFill by remember(wallpaper.id) {
+                var baseScaleFill by remember(wallpaperInner.id) {
                     val initialScale = if (placeholder != null) {
                         val scaleX = metrics.widthPixels.toFloat() / placeholder.width
                         val scaleY = metrics.heightPixels.toFloat() / placeholder.height
@@ -442,32 +437,10 @@ fun PreviewRoute(
                         .fillMaxSize()
                         .clipToBounds()
                         .background(Color.Black)
-                        .pointerInput(actualPage, isLocked) {
-                            detectTapGestures(
-                                onDoubleTap = { tapOffset ->
-                                    if (!isLocked) {
-                                        viewModel.handleDoubleTap(
-                                            index = actualPage,
-                                            tapOffset = tapOffset,
-                                            center = Offset(size.width / 2f, size.height / 2f)
-                                        )
-                                    }
-                                },
-                                onTap = {
-                                    if (isLocked) {
-                                        viewModel.requestUnlock(actualPage)
-                                    } else if (state.isEditMode) {
-                                        viewModel.setEditMode(false)
-                                    } else {
-                                        viewModel.toggleControls()
-                                    }
-                                }
-                            )
-                        }
-                        .pointerInput(actualPage, isLoaded, isLocked, state.isEditMode) {
-                            if (!isLoaded || isLocked || state.isEditMode) return@pointerInput
+                        .pointerInput(actualPageInner, isLoadedInner, isLockedInner) {
+                            if (!isLoadedInner || isLockedInner) return@pointerInput
                             detectTransformGestures(panZoomLock = false) { centroid, pan, zoom, rotation ->
-                                val current = currentTransformationState.value
+                                val current = currentTransformationStateInner.value
                                 // Allow zooming out significantly to see the full image
                                 val minAllowedScale = minOf(0.5f, 1f / baseScaleFill)
                                 val newScale = (current.scale * zoom).coerceIn(minAllowedScale, 5f)
@@ -479,12 +452,34 @@ fun PreviewRoute(
                                 val newOffset = current.offset + pan + zoomOffset
                                 
                                 viewModel.updateTransformation(
-                                    actualPage,
+                                    actualPageInner,
                                     newScale,
                                     newOffset,
                                     current.rotation + rotation
                                 )
                             }
+                        }
+                        .pointerInput(actualPageInner, isLockedInner, state.isEditMode) {
+                            detectTapGestures(
+                                onDoubleTap = { tapOffset ->
+                                    if (!isLockedInner) {
+                                        viewModel.handleDoubleTap(
+                                            index = actualPageInner,
+                                            tapOffset = tapOffset,
+                                            center = Offset(size.width / 2f, size.height / 2f)
+                                        )
+                                    }
+                                },
+                                onTap = {
+                                    if (isLockedInner) {
+                                        viewModel.requestUnlock(actualPageInner)
+                                    } else if (state.isEditMode) {
+                                        // In edit mode, we might want to stay in edit mode
+                                    } else {
+                                        viewModel.toggleControls()
+                                    }
+                                }
+                            )
                         },
                 ) {
                     val imageModifier = Modifier
@@ -536,17 +531,27 @@ fun PreviewRoute(
                                     matrix.timesAssign(bcMatrix)
                                 }
                                 
-                                // 3. Hue
+                            // 3. Hue
                                 if (transformationInner.hue != 0f) {
-                                    val hMatrix = androidx.compose.ui.graphics.ColorMatrix()
-                                    // Use individual channel rotations for hue shift as per request
-                                    val redMatrix = androidx.compose.ui.graphics.ColorMatrix().apply { setToRotateRed(transformationInner.hue) }
-                                    val greenMatrix = androidx.compose.ui.graphics.ColorMatrix().apply { setToRotateGreen(transformationInner.hue) }
-                                    val blueMatrix = androidx.compose.ui.graphics.ColorMatrix().apply { setToRotateBlue(transformationInner.hue) }
+                                    val matrixHue = androidx.compose.ui.graphics.ColorMatrix()
+                                    // Composes ColorMatrix rotate methods work differently than Android's ColorMatrix.setRotate
+                                    // For hue rotation, we rotate around the luminance axis.
+                                    // Compose's rotateX/Y/Z are for specific color channels.
+                                    // We will use the common approach for hue shift in ColorMatrix:
                                     
-                                    matrix.timesAssign(redMatrix)
-                                    matrix.timesAssign(greenMatrix)
-                                    matrix.timesAssign(blueMatrix)
+                                    val cosVal = kotlin.math.cos(Math.toRadians(transformationInner.hue.toDouble())).toFloat()
+                                    val sinVal = kotlin.math.sin(Math.toRadians(transformationInner.hue.toDouble())).toFloat()
+                                    val lumR = 0.213f
+                                    val lumG = 0.715f
+                                    val lumB = 0.072f
+                                    
+                                    val mat = floatArrayOf(
+                                        lumR + cosVal * (1 - lumR) + sinVal * (-lumR), lumG + cosVal * (-lumG) + sinVal * (-lumG), lumB + cosVal * (-lumB) + sinVal * (1 - lumB), 0f, 0f,
+                                        lumR + cosVal * (-lumR) + sinVal * (0.143f), lumG + cosVal * (1 - lumG) + sinVal * (0.140f), lumB + cosVal * (-lumB) + sinVal * (-0.283f), 0f, 0f,
+                                        lumR + cosVal * (-lumR) + sinVal * (-(1 - lumR)), lumG + cosVal * (-lumG) + sinVal * (lumG), lumB + cosVal * (1 - lumB) + sinVal * (lumB), 0f, 0f,
+                                        0f, 0f, 0f, 1f, 0f
+                                    )
+                                    matrix.timesAssign(androidx.compose.ui.graphics.ColorMatrix(mat))
                                 }
                                 
                                 colorFilter = androidx.compose.ui.graphics.ColorFilter.colorMatrix(matrix)
