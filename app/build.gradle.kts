@@ -8,15 +8,15 @@ plugins {
 }
 
 android {
-    namespace = "com.walli.spidermanwallpaper"
+    namespace = "com.walli.wallpaper"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.walli.spidermanwallpaper"
+        applicationId = "com.walli.wallpaper"
         minSdk = 24
         targetSdk = 36
-        versionCode = 13
-        versionName = "13.0.0"
+        versionCode = 8
+        versionName = "8.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = true

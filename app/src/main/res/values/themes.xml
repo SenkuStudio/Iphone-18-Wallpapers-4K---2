@@ -1,13 +1,13 @@
 <resources>
-    <style name="Theme.Spiderman" parent="Theme.Material3.DayNight.NoActionBar">
+    <style name="Theme.Wallpaper" parent="Theme.Material3.DayNight.NoActionBar">
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:windowLightStatusBar">false</item>
     </style>
 
-    <style name="Theme.Spiderman.Splash" parent="Theme.SplashScreen">
-        <item name="windowSplashScreenAnimatedIcon">@drawable/logoappspiderman</item>
+    <style name="Theme.Wallpaper.Splash" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenAnimatedIcon">@drawable/logoapp</item>
         <item name="windowSplashScreenBackground">@color/spiderman_splash_icon_bg</item>
-        <item name="postSplashScreenTheme">@style/Theme.Spiderman</item>
+        <item name="postSplashScreenTheme">@style/Theme.Wallpaper</item>
     </style>
 </resources>

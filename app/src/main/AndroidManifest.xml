@@ -40,12 +40,12 @@
         android:name=".SpidermanApp"
         android:allowBackup="false"
         android:fullBackupContent="false"
-        android:icon="@drawable/logoappspiderman"
+        android:icon="@drawable/logoapp"
         android:label="@string/app_name"
-        android:roundIcon="@drawable/logoappspiderman"
+        android:roundIcon="@drawable/logoapp"
         android:supportsRtl="true"
         android:usesCleartextTraffic="true"
-        android:theme="@style/Theme.Spiderman">
+        android:theme="@style/Theme.Wallpaper">
 
         <meta-data
             android:name="com.google.android.gms.ads.APPLICATION_ID"
@@ -54,7 +54,7 @@
         <activity
             android:name=".MainActivity"
             android:exported="true"
-            android:theme="@style/Theme.Spiderman.Splash">
+            android:theme="@style/Theme.Wallpaper.Splash">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
