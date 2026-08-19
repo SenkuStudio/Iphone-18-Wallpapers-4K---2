@@ -111,11 +111,11 @@ fun NativeAdItem(
                         .fillMaxWidth()
                         .wrapContentHeight()
                         .defaultMinSize(minHeight = 120.dp),
-                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
-                    shape = RoundedCornerShape(20.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+                    shape = RoundedCornerShape(16.dp),
                     border = androidx.compose.foundation.BorderStroke(
-                        0.5.dp, 
-                        MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                        1.dp, 
+                        MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)
                     )
                 ) {
                     AndroidView(
@@ -261,7 +261,12 @@ private fun populateNativeAdView(nativeAd: NativeAd, adView: NativeAdView) {
     }
 
     if (nativeAd.advertiser == null) {
-        adView.advertiserView?.visibility = View.GONE
+        if (nativeAd.store == null) {
+            adView.advertiserView?.visibility = View.GONE
+        } else {
+            (adView.advertiserView as? TextView)?.text = nativeAd.store
+            adView.advertiserView?.visibility = View.VISIBLE
+        }
     } else {
         (adView.advertiserView as? TextView)?.text = nativeAd.advertiser
         adView.advertiserView?.visibility = View.VISIBLE

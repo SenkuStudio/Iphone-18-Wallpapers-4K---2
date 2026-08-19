@@ -251,14 +251,14 @@ private fun CategoryWallpapersScreen(
                     // Insert Native Ad every 6 items
                     if (index > 0 && (index + 1) % 6 == 0) {
                         item(
-                            key = "native-ad-${index}",
+                            key = "cat-wallpapers-ad-$index",
                             span = { GridItemSpan(maxLineSpan) },
                             contentType = "native_ad"
                         ) {
                             com.walli.wallpaper.ui.components.NativeAdItem(
                                 adUnitId = BuildConfig.ADMOB_NATIVE_WALLPAPERS,
                                 key = "cat-wallpapers-ad-$index",
-                                modifier = Modifier.padding(vertical = 8.dp)
+                                modifier = Modifier.padding(vertical = 16.dp)
                             )
                         }
                     }

@@ -121,7 +121,7 @@ fun FavoritesRoute(
                                     com.walli.wallpaper.ui.components.NativeAdItem(
                                         adUnitId = BuildConfig.ADMOB_NATIVE_WALLPAPERS,
                                         key = "fav-grid-ad-$index",
-                                        modifier = Modifier.padding(vertical = 8.dp)
+                                        modifier = Modifier.padding(vertical = 16.dp)
                                     )
                                 }
                             }

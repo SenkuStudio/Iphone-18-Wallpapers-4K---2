@@ -464,7 +464,7 @@ private fun HomeScreen(
                                                 NativeAdItem(
                                                     adUnitId = BuildConfig.ADMOB_NATIVE_HOME,
                                                     key = "home-grid-ad-$index",
-                                                    modifier = Modifier.padding(vertical = 8.dp)
+                                                    modifier = Modifier.padding(vertical = 16.dp)
                                                 )
                                             }
                                         }
