@@ -62,7 +62,11 @@ class AdMobManager @Inject constructor(
     private val _isRewardedLoaded = MutableStateFlow(false)
     val isRewardedLoaded = _isRewardedLoaded.asStateFlow()
 
-    private var openCounter = 0
+    private var lastAdShowTime: Long = 0
+    private var meaningfulOpenCounter = 0
+    private var nextThreshold = (4..6).random()
+    private val adCooldownMillis = (60..120).random() * 1000L
+
     private var isAppInForeground = false
     private var isShowingAd = false
 
@@ -109,7 +113,7 @@ class AdMobManager @Inject constructor(
     }
 
     fun maybeShowCategoryInterstitial(activity: Activity?, onContinue: () -> Unit) {
-        showInterstitial(activity, categoryInterstitialAd, { categoryInterstitialAd = null }, BuildConfig.ADMOB_INTERSTITIAL_CATEGORY, onContinue)
+        onContinue()
     }
 
     fun maybeShowSetWallpaperInterstitial(activity: Activity?, onContinue: () -> Unit) {
@@ -117,12 +121,33 @@ class AdMobManager @Inject constructor(
     }
 
     fun maybeShowHomeInterstitial(activity: Activity?, onContinue: () -> Unit) {
-        openCounter += 1
-        if (openCounter % 2 != 0) {
+        meaningfulOpenCounter++
+
+        val currentTime = System.currentTimeMillis()
+        val isCooldownOver = (currentTime - lastAdShowTime) >= adCooldownMillis
+        val isThresholdReached = meaningfulOpenCounter >= nextThreshold
+
+        if (!isThresholdReached || !isCooldownOver || homeInterstitialAd == null || activity == null) {
             onContinue()
+            // If not loaded, ensure we try to load for next time
+            if (homeInterstitialAd == null && isAppInForeground) {
+                loadInterstitial(BuildConfig.ADMOB_INTERSTITIAL_HOME) { homeInterstitialAd = it }
+            }
             return
         }
-        showInterstitial(activity, homeInterstitialAd, { homeInterstitialAd = null }, BuildConfig.ADMOB_INTERSTITIAL_HOME, onContinue)
+
+        showInterstitial(
+            activity,
+            homeInterstitialAd,
+            {
+                homeInterstitialAd = null
+                lastAdShowTime = System.currentTimeMillis()
+                meaningfulOpenCounter = 0
+                nextThreshold = (4..6).random()
+            },
+            BuildConfig.ADMOB_INTERSTITIAL_HOME,
+            onContinue
+        )
     }
 
     private fun showInterstitial(
@@ -146,6 +171,7 @@ class AdMobManager @Inject constructor(
 
         ad.fullScreenContentCallback = object : FullScreenContentCallback() {
             override fun onAdDismissedFullScreenContent() {
+                isShowingAd = false
                 clearAd()
                 if (isAppInForeground) loadInterstitial(adUnitId) {
                     when (adUnitId) {
@@ -158,6 +184,7 @@ class AdMobManager @Inject constructor(
             }
 
             override fun onAdFailedToShowFullScreenContent(adError: AdError) {
+                isShowingAd = false
                 clearAd()
                 if (isAppInForeground) loadInterstitial(adUnitId) {
                     when (adUnitId) {
@@ -167,6 +194,10 @@ class AdMobManager @Inject constructor(
                     }
                 }
                 onContinue()
+            }
+
+            override fun onAdShowedFullScreenContent() {
+                isShowingAd = true
             }
         }
         ad.show(activity)
