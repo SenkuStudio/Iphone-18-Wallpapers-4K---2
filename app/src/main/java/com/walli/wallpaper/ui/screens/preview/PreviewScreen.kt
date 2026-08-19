@@ -98,8 +98,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
-import androidx.compose.foundation.gestures.rememberTransformableState
-import androidx.compose.foundation.gestures.transformable
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.palette.graphics.Palette
@@ -119,20 +117,14 @@ import androidx.compose.material3.ButtonDefaults
 import com.walli.wallpaper.ui.components.NoInternetState
 import com.walli.wallpaper.ui.components.EmptyState
 import com.walli.wallpaper.ui.components.PremiumLoader
+import com.walli.wallpaper.domain.model.Wallpaper
+import com.walli.wallpaper.ui.components.NativeAdItem
 
 import com.walli.wallpaper.util.findActivity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import androidx.compose.ui.input.pointer.util.VelocityTracker
-import androidx.compose.foundation.gestures.awaitEachGesture
-import androidx.compose.foundation.gestures.awaitFirstDown
-import androidx.compose.foundation.gestures.calculateCentroid
-import androidx.compose.foundation.gestures.calculateCentroidSize
-import androidx.compose.foundation.gestures.calculatePan
-import androidx.compose.foundation.gestures.calculateRotation
-import androidx.compose.foundation.gestures.calculateZoom
 import com.walli.wallpaper.ui.components.UnlockPremiumDialog
 
 @OptIn(androidx.compose.animation.ExperimentalSharedTransitionApi::class)
@@ -154,7 +146,7 @@ fun PreviewRoute(
     val isRewardedReady by adsViewModel.isRewardedReady.collectAsStateWithLifecycle()
     var isAdLoading by remember { mutableStateOf(false) }
 
-    fun showAdAndUnlock(wallpaper: com.walli.wallpaper.domain.model.Wallpaper) {
+    fun showAdAndUnlock(wallpaper: Wallpaper) {
         adsViewModel.showPreviewRewarded(
             activity = activity,
             onReward = {
@@ -254,38 +246,51 @@ fun PreviewRoute(
     LaunchedEffect(pagerState, state.items) {
         snapshotFlow { pagerState.settledPage }.collectLatest { actualPage ->
             if (state.items.isEmpty()) return@collectLatest
-            val imageUrl = state.items[actualPage].imageUrl
+            val item = state.items[actualPage]
+            if (item is Wallpaper) {
+                val imageUrl = item.imageUrl
 
-            viewModel.onPageSettled(actualPage)
+                viewModel.onPageSettled(actualPage)
 
-            // Extract Palette from the current image
-            val loader = SingletonImageLoader.get(context)
-            val request = ImageRequest.Builder(context)
-                .data(imageUrl)
-                .size(128, 128) // Smaller size is sufficient for Palette extraction
-                .allowHardware(false) // Required to convert to bitmap
-                .build()
+                // Extract Palette from the current image
+                val loader = SingletonImageLoader.get(context)
+                val request = ImageRequest.Builder(context)
+                    .data(imageUrl)
+                    .size(128, 128) // Smaller size is sufficient for Palette extraction
+                    .allowHardware(false) // Required to convert to bitmap
+                    .build()
 
-            val result = loader.execute(request)
-            if (result is SuccessResult) {
-                val bitmap = result.image.asDrawable(context.resources).toBitmap()
-                val palette = withContext(Dispatchers.Default) {
-                    Palette.from(bitmap).maximumColorCount(16).generate()
+                val result = loader.execute(request)
+                if (result is SuccessResult) {
+                    val bitmap = result.image.asDrawable(context.resources).toBitmap()
+                    val palette = withContext(Dispatchers.Default) {
+                        Palette.from(bitmap).maximumColorCount(16).generate()
+                    }
+                    val swatch = palette.vibrantSwatch ?: palette.dominantSwatch
+                    swatch?.let { s ->
+                        dominantColor = Color(s.rgb)
+                        onDominantColor = Color(s.titleTextColor)
+                    }
                 }
-                val swatch = palette.vibrantSwatch ?: palette.dominantSwatch
-                swatch?.let { s ->
-                    dominantColor = Color(s.rgb)
-                    onDominantColor = Color(s.titleTextColor)
+
+                preloadAdjacentImages(
+                    context = context,
+                    urls = listOfNotNull(
+                        (state.items.getOrNull(actualPage - 1) as? Wallpaper)?.imageUrl,
+                        (state.items.getOrNull(actualPage + 1) as? Wallpaper)?.imageUrl,
+                    ),
+                )
+
+                // Preload next ad if it's within the next 3 pages
+                val nextItems = (1..3).mapNotNull { state.items.getOrNull(actualPage + it) }
+                if (nextItems.any { it is String && it.startsWith("ad_preview_") }) {
+                    adsViewModel.preloadNativeAd(BuildConfig.ADMOB_NATIVE_PREVIEW)
                 }
+            } else {
+                // It's an ad
+                dominantColor = Color.DarkGray
+                onDominantColor = Color.White
             }
-
-            preloadAdjacentImages(
-                context = context,
-                urls = listOfNotNull(
-                    state.items.getOrNull(actualPage - 1)?.imageUrl,
-                    state.items.getOrNull(actualPage + 1)?.imageUrl,
-                ),
-            )
         }
     }
 
@@ -385,345 +390,329 @@ fun PreviewRoute(
                 onRetry = null // Network monitor handles it
             )
         } else {
-            val actualPage = pagerState.currentPage % state.items.size
-            val wallpaper = state.items[actualPage]
-            val isLocked = wallpaper.isPremium && !wallpaper.isUnlocked
-
-            var isLoaded by remember(wallpaper.id) { mutableStateOf(false) }
-            var retryCount by remember(wallpaper.id) { mutableStateOf(0) }
-
-            val transformation = state.transformations[actualPage] ?: ImageTransformation()
-            val currentTransformationState = rememberUpdatedState(transformation)
-
             HorizontalPager(
                 state = pagerState,
                 beyondViewportPageCount = 1,
                 pageSpacing = 16.dp,
                 modifier = Modifier.fillMaxSize(),
-                userScrollEnabled = false,
-                key = { page -> state.items.getOrNull(page % state.items.size)?.id ?: page }
+                userScrollEnabled = !state.isEditMode,
+                key = { page -> 
+                    val item = state.items.getOrNull(page % state.items.size)
+                    when (item) {
+                        is Wallpaper -> item.id
+                        is String -> item
+                        else -> page
+                    }
+                }
             ) { page ->
                 if (state.items.isEmpty()) return@HorizontalPager
                 val actualPageInner = page % state.items.size
-                val wallpaperInner = state.items[actualPageInner]
-                val isLockedInner = wallpaperInner.isPremium && !wallpaperInner.isUnlocked
+                val itemInner = state.items[actualPageInner]
 
-                var isLoadedInner by remember(wallpaperInner.id) { mutableStateOf(false) }
-                var retryCountInner by remember(wallpaperInner.id) { mutableStateOf(0) }
-
-                val transformationInner = state.transformations[actualPageInner] ?: ImageTransformation()
-                val currentTransformationStateInner = rememberUpdatedState(transformationInner)
-
-                val placeholder = remember(wallpaperInner.blurHash) {
-                    wallpaperInner.blurHash?.let {
-                        BlurhashDecoder.decode(it, 4, 6)?.asImageBitmap()
+                if (itemInner is String && itemInner.startsWith("ad_preview_")) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(horizontal = 24.dp, vertical = 80.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        NativeAdItem(
+                            adUnitId = BuildConfig.ADMOB_NATIVE_PREVIEW,
+                            key = itemInner,
+                            modifier = Modifier.fillMaxWidth(),
+                            onAdFailed = {
+                                viewModel.removeAdItem(itemInner)
+                            }
+                        )
                     }
-                }
+                } else if (itemInner is Wallpaper) {
+                    val isLockedInner = itemInner.isPremium && !itemInner.isUnlocked
 
-                // Calculate the scale needed to go from 'Fit' to 'Fill' (Crop)
-                // We use the placeholder's aspect ratio to get an immediate estimate to avoid jumping
-                val metrics = LocalContext.current.resources.displayMetrics
-                var baseScaleFill by remember(wallpaperInner.id) {
-                    val initialScale = if (placeholder != null) {
-                        val scaleX = metrics.widthPixels.toFloat() / placeholder.width
-                        val scaleY = metrics.heightPixels.toFloat() / placeholder.height
-                        maxOf(scaleX, scaleY) / minOf(scaleX, scaleY)
-                    } else 1f
-                    mutableStateOf(initialScale)
-                }
+                    var isLoadedInner by remember(itemInner.id) { mutableStateOf(false) }
+                    var retryCountInner by remember(itemInner.id) { mutableStateOf(0) }
 
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .clipToBounds()
-                        .background(Color.Black)
-                        .pointerInput(actualPageInner, isLoadedInner, isLockedInner) {
-                            if (!isLoadedInner || isLockedInner) return@pointerInput
-                            detectTransformGestures(panZoomLock = false) { centroid, pan, zoom, rotation ->
-                                val current = currentTransformationStateInner.value
-                                // Allow zooming out significantly to see the full image
-                                val minAllowedScale = minOf(0.5f, 1f / baseScaleFill)
-                                val newScale = (current.scale * zoom).coerceIn(minAllowedScale, 5f)
+                    val transformationInner = state.transformations[actualPageInner] ?: ImageTransformation()
+                    val currentTransformationStateInner = rememberUpdatedState(transformationInner)
+
+                    val placeholder = remember(itemInner.blurHash) {
+                        itemInner.blurHash?.let {
+                            BlurhashDecoder.decode(it, 4, 6)?.asImageBitmap()
+                        }
+                    }
+
+                    val metrics = LocalContext.current.resources.displayMetrics
+                    var baseScaleFill by remember(itemInner.id) {
+                        val initialScale = if (placeholder != null) {
+                            val scaleX = metrics.widthPixels.toFloat() / placeholder.width
+                            val scaleY = metrics.heightPixels.toFloat() / placeholder.height
+                            maxOf(scaleX, scaleY) / minOf(scaleX, scaleY)
+                        } else 1f
+                        mutableStateOf(initialScale)
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .clipToBounds()
+                            .background(Color.Black)
+                            .pointerInput(actualPageInner, isLoadedInner, isLockedInner) {
+                                if (!isLoadedInner || isLockedInner) return@pointerInput
+                                detectTransformGestures(panZoomLock = false) { centroid, pan, zoom, rotation ->
+                                    val current = currentTransformationStateInner.value
+                                    val minAllowedScale = minOf(0.5f, 1f / baseScaleFill)
+                                    val newScale = (current.scale * zoom).coerceIn(minAllowedScale, 5f)
+                                    
+                                    val pivot = centroid - Offset(size.width / 2f, size.height / 2f)
+                                    val scaleChange = newScale / current.scale
+                                    val zoomOffset = (current.offset - pivot) * scaleChange + pivot - current.offset
+                                    val newOffset = current.offset + pan + zoomOffset
+                                    
+                                    viewModel.updateTransformation(
+                                        actualPageInner,
+                                        newScale,
+                                        newOffset,
+                                        current.rotation + rotation
+                                    )
+                                }
+                            }
+                            .pointerInput(actualPageInner, isLockedInner, state.isEditMode) {
+                                detectTapGestures(
+                                    onDoubleTap = { tapOffset ->
+                                        if (!isLockedInner) {
+                                            viewModel.handleDoubleTap(
+                                                index = actualPageInner,
+                                                tapOffset = tapOffset,
+                                                center = Offset(size.width / 2f, size.height / 2f)
+                                            )
+                                        }
+                                    },
+                                    onTap = {
+                                        if (isLockedInner) {
+                                            viewModel.requestUnlock(actualPageInner)
+                                        } else if (state.isEditMode) {
+                                            viewModel.setEditMode(false)
+                                        } else {
+                                            viewModel.toggleControls()
+                                        }
+                                    }
+                                )
+                            },
+                    ) {
+                        val imageModifier = Modifier
+                            .fillMaxSize()
+                            .then(
+                                if (isLockedInner) {
+                                    Modifier.blur(40.dp)
+                                } else if (transformationInner.blur > 0f) {
+                                    Modifier.blur(transformationInner.blur.dp)
+                                } else {
+                                    Modifier
+                                }
+                            )
+                            .graphicsLayer {
+                                val currentScale = if (isLoadedInner || placeholder != null) (transformationInner.scale * baseScaleFill) else 1f
+                                val currentOffset = if (isLoadedInner && !isLockedInner) transformationInner.offset else Offset.Zero
+                                val currentRotation = if (isLoadedInner && !isLockedInner) transformationInner.rotation else 0f
                                 
-                                // Calculate center-zoom offset adjustment
-                                val pivot = centroid - Offset(size.width / 2f, size.height / 2f)
-                                val scaleChange = newScale / current.scale
-                                val zoomOffset = (current.offset - pivot) * scaleChange + pivot - current.offset
-                                val newOffset = current.offset + pan + zoomOffset
+                                scaleX = currentScale
+                                scaleY = currentScale
+                                translationX = currentOffset.x
+                                translationY = currentOffset.y
+                                rotationZ = currentRotation
                                 
-                                viewModel.updateTransformation(
-                                    actualPageInner,
-                                    newScale,
-                                    newOffset,
-                                    current.rotation + rotation
+                                if (!isLockedInner && (transformationInner.brightness != 1f || transformationInner.contrast != 1f || transformationInner.saturation != 1f || transformationInner.hue != 0f || transformationInner.structure != 0f || transformationInner.details != 0f)) {
+                                    val matrix = androidx.compose.ui.graphics.ColorMatrix()
+                                    if (transformationInner.saturation != 1f) {
+                                        matrix.setToSaturation(transformationInner.saturation)
+                                    }
+                                    if (transformationInner.brightness != 1f || transformationInner.contrast != 1f || transformationInner.structure != 0f || transformationInner.details != 0f) {
+                                        val brightnessOffset = (transformationInner.brightness - 1f) * 255f
+                                        val effectiveContrast = transformationInner.contrast * (1f + (transformationInner.structure * 0.08f) + (transformationInner.details * 0.04f))
+                                        val bcMatrix = androidx.compose.ui.graphics.ColorMatrix(floatArrayOf(
+                                            effectiveContrast, 0f, 0f, 0f, brightnessOffset,
+                                            0f, effectiveContrast, 0f, 0f, brightnessOffset,
+                                            0f, 0f, effectiveContrast, 0f, brightnessOffset,
+                                            0f, 0f, 0f, 1f, 0f
+                                        ))
+                                        matrix.timesAssign(bcMatrix)
+                                    }
+                                    if (transformationInner.hue != 0f) {
+                                        val cosVal = kotlin.math.cos(Math.toRadians(transformationInner.hue.toDouble())).toFloat()
+                                        val sinVal = kotlin.math.sin(Math.toRadians(transformationInner.hue.toDouble())).toFloat()
+                                        val lumR = 0.213f
+                                        val lumG = 0.715f
+                                        val lumB = 0.072f
+                                        val mat = floatArrayOf(
+                                            lumR + cosVal * (1 - lumR) + sinVal * (-lumR), lumG + cosVal * (-lumG) + sinVal * (-lumG), lumB + cosVal * (-lumB) + sinVal * (1 - lumB), 0f, 0f,
+                                            lumR + cosVal * (-lumR) + sinVal * (0.143f), lumG + cosVal * (1 - lumG) + sinVal * (0.140f), lumB + cosVal * (-lumB) + sinVal * (-0.283f), 0f, 0f,
+                                            lumR + cosVal * (-lumR) + sinVal * (-(1 - lumR)), lumG + cosVal * (-lumG) + sinVal * (lumG), lumB + cosVal * (1 - lumB) + sinVal * (lumB), 0f, 0f,
+                                            0f, 0f, 0f, 1f, 0f
+                                        )
+                                        matrix.timesAssign(androidx.compose.ui.graphics.ColorMatrix(mat))
+                                    }
+                                    colorFilter = androidx.compose.ui.graphics.ColorFilter.colorMatrix(matrix)
+                                }
+                                clip = true
+                            }
+
+                        val sharedImageModifier = if (page == state.initialIndex) {
+                            with(sharedTransitionScope) {
+                                imageModifier.sharedElement(
+                                    rememberSharedContentState(key = "image-${itemInner.id}"),
+                                    animatedVisibilityScope = animatedVisibilityScope
                                 )
                             }
+                        } else {
+                            imageModifier
                         }
-                        .pointerInput(actualPageInner, isLockedInner, state.isEditMode) {
-                            detectTapGestures(
-                                onDoubleTap = { tapOffset ->
-                                    if (!isLockedInner) {
-                                        viewModel.handleDoubleTap(
-                                            index = actualPageInner,
-                                            tapOffset = tapOffset,
-                                            center = Offset(size.width / 2f, size.height / 2f)
+
+                        if (!isLockedInner) {
+                            coil3.compose.AsyncImage(
+                                model = ImageRequest.Builder(context)
+                                    .data(itemInner.thumbnailUrl)
+                                    .build(),
+                                contentDescription = null,
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .blur(24.dp)
+                                    .graphicsLayer { 
+                                        alpha = 0.5f 
+                                        clip = true
+                                    },
+                                contentScale = ContentScale.Crop,
+                                alignment = Alignment.Center
+                            )
+                        }
+
+                        SubcomposeAsyncImage(
+                            model = ImageRequest.Builder(context)
+                                .data(if (isLockedInner) itemInner.thumbnailUrl else itemInner.imageUrl)
+                                .apply {
+                                    if (retryCountInner > 0) {
+                                        memoryCacheKey("${itemInner.id}_retry_$retryCountInner")
+                                    }
+                                }
+                                .crossfade(true)
+                                .build(),
+                            contentDescription = itemInner.title,
+                            modifier = sharedImageModifier,
+                            contentScale = ContentScale.Fit,
+                            alignment = Alignment.Center,
+                            onSuccess = { state ->
+                                isLoadedInner = true
+                                val size = state.painter.intrinsicSize
+                                if (size.width > 0 && size.height > 0) {
+                                    val scaleX = metrics.widthPixels.toFloat() / size.width
+                                    val scaleY = metrics.heightPixels.toFloat() / size.height
+                                    baseScaleFill = maxOf(scaleX, scaleY) / minOf(scaleX, scaleY)
+                                }
+                            },
+                            loading = {
+                                Box(
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    placeholder?.let { bitmap ->
+                                        androidx.compose.foundation.Image(
+                                            bitmap = bitmap,
+                                            contentDescription = null,
+                                            modifier = Modifier.fillMaxSize(),
+                                            contentScale = ContentScale.Fit,
+                                            alignment = Alignment.Center
                                         )
                                     }
-                                },
-                                onTap = {
-                                    if (isLockedInner) {
-                                        viewModel.requestUnlock(actualPageInner)
-                                    } else if (state.isEditMode) {
-                                        viewModel.setEditMode(false)
-                                    } else {
-                                        viewModel.toggleControls()
-                                    }
-                                }
-                            )
-                        },
-                ) {
-                    val imageModifier = Modifier
-                        .fillMaxSize()
-                        .then(
-                            if (isLockedInner) {
-                                Modifier.blur(40.dp)
-                            } else if (transformationInner.blur > 0f) {
-                                Modifier.blur(transformationInner.blur.dp)
-                            } else {
-                                Modifier
-                            }
-                        )
-                        .graphicsLayer {
-                            // Scale 1.0 in ViewModel = "Fill Screen" (Crop look)
-                            // We multiply by baseScaleFill to convert from 'Fit' to 'Fill'
-                            val currentScale = if (isLoadedInner || placeholder != null) (transformationInner.scale * baseScaleFill) else 1f
-                            val currentOffset = if (isLoadedInner && !isLockedInner) transformationInner.offset else Offset.Zero
-                            val currentRotation = if (isLoadedInner && !isLockedInner) transformationInner.rotation else 0f
-                            
-                            scaleX = currentScale
-                            scaleY = currentScale
-                            translationX = currentOffset.x
-                            translationY = currentOffset.y
-                            rotationZ = currentRotation
-                            
-                            // Apply Color Transformations via ColorMatrix
-                            if (!isLockedInner && (transformationInner.brightness != 1f || transformationInner.contrast != 1f || transformationInner.saturation != 1f || transformationInner.hue != 0f || transformationInner.structure != 0f || transformationInner.details != 0f)) {
-                                val matrix = androidx.compose.ui.graphics.ColorMatrix()
-                                
-                                // 1. Saturation
-                                if (transformationInner.saturation != 1f) {
-                                    matrix.setToSaturation(transformationInner.saturation)
-                                }
-                                
-                                // 2. Brightness & Contrast
-                                if (transformationInner.brightness != 1f || transformationInner.contrast != 1f || transformationInner.structure != 0f || transformationInner.details != 0f) {
-                                    val brightnessOffset = (transformationInner.brightness - 1f) * 255f
-                                    // Simulate Structure and Details with additional contrast boost in preview
-                                    // Make it more aggressive so it's clearly visible
-                                    val effectiveContrast = transformationInner.contrast * (1f + (transformationInner.structure * 0.08f) + (transformationInner.details * 0.04f))
                                     
-                                    val bcMatrix = androidx.compose.ui.graphics.ColorMatrix(floatArrayOf(
-                                        effectiveContrast, 0f, 0f, 0f, brightnessOffset,
-                                        0f, effectiveContrast, 0f, 0f, brightnessOffset,
-                                        0f, 0f, effectiveContrast, 0f, brightnessOffset,
-                                        0f, 0f, 0f, 1f, 0f
-                                    ))
-                                    matrix.timesAssign(bcMatrix)
-                                }
-                                
-                            // 3. Hue
-                                if (transformationInner.hue != 0f) {
-                                    val matrixHue = androidx.compose.ui.graphics.ColorMatrix()
-                                    // Composes ColorMatrix rotate methods work differently than Android's ColorMatrix.setRotate
-                                    // For hue rotation, we rotate around the luminance axis.
-                                    // Compose's rotateX/Y/Z are for specific color channels.
-                                    // We will use the common approach for hue shift in ColorMatrix:
-                                    
-                                    val cosVal = kotlin.math.cos(Math.toRadians(transformationInner.hue.toDouble())).toFloat()
-                                    val sinVal = kotlin.math.sin(Math.toRadians(transformationInner.hue.toDouble())).toFloat()
-                                    val lumR = 0.213f
-                                    val lumG = 0.715f
-                                    val lumB = 0.072f
-                                    
-                                    val mat = floatArrayOf(
-                                        lumR + cosVal * (1 - lumR) + sinVal * (-lumR), lumG + cosVal * (-lumG) + sinVal * (-lumG), lumB + cosVal * (-lumB) + sinVal * (1 - lumB), 0f, 0f,
-                                        lumR + cosVal * (-lumR) + sinVal * (0.143f), lumG + cosVal * (1 - lumG) + sinVal * (0.140f), lumB + cosVal * (-lumB) + sinVal * (-0.283f), 0f, 0f,
-                                        lumR + cosVal * (-lumR) + sinVal * (-(1 - lumR)), lumG + cosVal * (-lumG) + sinVal * (lumG), lumB + cosVal * (1 - lumB) + sinVal * (lumB), 0f, 0f,
-                                        0f, 0f, 0f, 1f, 0f
-                                    )
-                                    matrix.timesAssign(androidx.compose.ui.graphics.ColorMatrix(mat))
-                                }
-                                
-                                colorFilter = androidx.compose.ui.graphics.ColorFilter.colorMatrix(matrix)
-                            }
-                            
-                            // Explicitly clip to the node's bounds to prevent overlapping during zoom/pan
-                            clip = true
-                        }
-
-                    val sharedImageModifier = if (page == state.initialIndex) {
-                        with(sharedTransitionScope) {
-                            imageModifier.sharedElement(
-                                rememberSharedContentState(key = "image-${wallpaperInner.id}"),
-                                animatedVisibilityScope = animatedVisibilityScope
-                            )
-                        }
-                    } else {
-                        imageModifier
-                    }
-
-                    // 1. Background Layer (Blurred & Cropped to fill screen)
-                    // This provides a nice backdrop when the main image is in 'Fit' mode or zoomed out
-                    if (!isLockedInner) {
-                        coil3.compose.AsyncImage(
-                            model = ImageRequest.Builder(context)
-                                .data(wallpaperInner.thumbnailUrl)
-                                .build(),
-                            contentDescription = null,
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .blur(24.dp)
-                                .graphicsLayer { 
-                                    alpha = 0.5f 
-                                    clip = true
-                                },
-                            contentScale = ContentScale.Crop,
-                            alignment = Alignment.Center
-                        )
-                    }
-
-                    SubcomposeAsyncImage(
-                        model = ImageRequest.Builder(context)
-                            .data(if (isLockedInner) wallpaperInner.thumbnailUrl else wallpaperInner.imageUrl)
-                            .apply {
-                                if (retryCountInner > 0) {
-                                    // Use a unique memory cache key to force reload if retried
-                                    memoryCacheKey("${wallpaperInner.id}_retry_$retryCountInner")
-                                }
-                            }
-                            .crossfade(true)
-                            .build(),
-                        contentDescription = wallpaperInner.title,
-                        modifier = sharedImageModifier,
-                        contentScale = ContentScale.Fit,
-                        alignment = Alignment.Center,
-                        onSuccess = { state ->
-                            isLoadedInner = true
-                            val size = state.painter.intrinsicSize
-                            if (size.width > 0 && size.height > 0) {
-                                val scaleX = metrics.widthPixels.toFloat() / size.width
-                                val scaleY = metrics.heightPixels.toFloat() / size.height
-                                baseScaleFill = maxOf(scaleX, scaleY) / minOf(scaleX, scaleY)
-                            }
-                        },
-                        loading = {
-                            Box(
-                                modifier = Modifier.fillMaxSize(),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                // 1. BlurHash (Static Layer)
-                                placeholder?.let { bitmap ->
-                                    androidx.compose.foundation.Image(
-                                        bitmap = bitmap,
+                                    coil3.compose.AsyncImage(
+                                        model = ImageRequest.Builder(context)
+                                            .data(itemInner.thumbnailUrl)
+                                            .size(320, 480)
+                                            .precision(coil3.size.Precision.INEXACT)
+                                            .build(),
                                         contentDescription = null,
                                         modifier = Modifier.fillMaxSize(),
                                         contentScale = ContentScale.Fit,
                                         alignment = Alignment.Center
                                     )
-                                }
-                                
-                                // 2. Thumbnail (Instant Layer - Matches Grid Cache)
-                                coil3.compose.AsyncImage(
-                                    model = ImageRequest.Builder(context)
-                                        .data(wallpaperInner.thumbnailUrl)
-                                        .size(320, 480) // Exact same size as WallpaperCard for cache hit
-                                        .precision(coil3.size.Precision.INEXACT)
-                                        .build(),
-                                    contentDescription = null,
-                                    modifier = Modifier.fillMaxSize(),
-                                    contentScale = ContentScale.Fit,
-                                    alignment = Alignment.Center
-                                )
 
-                                Surface(
-                                    shape = RoundedCornerShape(24.dp),
-                                    color = Color.Black.copy(alpha = 0.2f),
-                                    modifier = Modifier.size(80.dp),
-                                ) {
-                                    Box(
-                                        contentAlignment = Alignment.Center,
-                                        modifier = Modifier.background(
-                                            Brush.linearGradient(
-                                                colors = listOf(
-                                                    Color.White.copy(alpha = 0.15f),
-                                                    Color.White.copy(alpha = 0.05f)
+                                    Surface(
+                                        shape = RoundedCornerShape(24.dp),
+                                        color = Color.Black.copy(alpha = 0.2f),
+                                        modifier = Modifier.size(80.dp),
+                                    ) {
+                                        Box(
+                                            contentAlignment = Alignment.Center,
+                                            modifier = Modifier.background(
+                                                Brush.linearGradient(
+                                                    colors = listOf(
+                                                        Color.White.copy(alpha = 0.15f),
+                                                        Color.White.copy(alpha = 0.05f)
+                                                    )
                                                 )
                                             )
-                                        )
+                                        ) {
+                                            PremiumLoader(
+                                                isPremium = itemInner.isPremium && !itemInner.isUnlocked,
+                                                color = Color.White
+                                            )
+                                        }
+                                    }
+                                }
+                            },
+                            error = {
+                                Column(
+                                    modifier = Modifier.fillMaxSize(),
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.Warning,
+                                        contentDescription = "Error",
+                                        tint = Color.White.copy(alpha = 0.5f),
+                                        modifier = Modifier.size(48.dp)
+                                    )
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    androidx.compose.material3.Button(
+                                        onClick = { retryCountInner++ },
+                                        colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                                            containerColor = Color.White.copy(alpha = 0.2f),
+                                            contentColor = Color.White
+                                        ),
+                                        shape = RoundedCornerShape(12.dp)
                                     ) {
-                                        PremiumLoader(
-                                            isPremium = wallpaperInner.isPremium && !wallpaperInner.isUnlocked,
-                                            color = Color.White
+                                        Icon(
+                                            imageVector = Icons.Rounded.Refresh,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(16.dp)
                                         )
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text("Retry")
                                     }
                                 }
                             }
-                        },
-                        error = {
-                            Column(
-                                modifier = Modifier.fillMaxSize(),
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.Center
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Rounded.Warning,
-                                    contentDescription = "Error",
-                                    tint = Color.White.copy(alpha = 0.5f),
-                                    modifier = Modifier.size(48.dp)
-                                )
-                                Spacer(modifier = Modifier.height(8.dp))
-                                Spacer(modifier = Modifier.height(16.dp))
-                                androidx.compose.material3.Button(
-                                    onClick = { retryCountInner++ },
-                                    colors = androidx.compose.material3.ButtonDefaults.buttonColors(
-                                        containerColor = Color.White.copy(alpha = 0.2f),
-                                        contentColor = Color.White
-                                    ),
-                                    shape = RoundedCornerShape(12.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Rounded.Refresh,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text("Retry")
-                                }
-                            }
-                        }
-                    )
-
-                    if (isLockedInner) {
-                        LockedOverlay(
-                            isLoading = isAdLoading && state.wallpaperToUnlock?.id == wallpaperInner.id,
-                            onUnlock = { viewModel.requestUnlock(actualPageInner) }
                         )
-                    }
 
-                    Box(
-                        modifier = Modifier
-                            .matchParentSize()
-                            .background(
-                                Brush.verticalGradient(
-                                    listOf(
-                                        Color.Black.copy(alpha = 0.6f),
-                                        Color.Transparent,
-                                        Color.Transparent,
-                                        Color.Black.copy(alpha = 0.75f),
+                        if (isLockedInner) {
+                            LockedOverlay(
+                                isLoading = isAdLoading && state.wallpaperToUnlock?.id == itemInner.id,
+                                onUnlock = { viewModel.requestUnlock(actualPageInner) }
+                            )
+                        }
+
+                        Box(
+                            modifier = Modifier
+                                .matchParentSize()
+                                .background(
+                                    Brush.verticalGradient(
+                                        listOf(
+                                            Color.Black.copy(alpha = 0.6f),
+                                            Color.Transparent,
+                                            Color.Transparent,
+                                            Color.Black.copy(alpha = 0.75f),
+                                        ),
                                     ),
                                 ),
-                            ),
-                    )
+                        )
+                    }
                 }
             }
 
@@ -756,7 +745,6 @@ fun PreviewRoute(
                         }
                         Spacer(modifier = Modifier.weight(1f))
 
-                        // Reset Button
                         val actualTransformation = state.transformations[actualPage]
                         if (actualTransformation != null && (actualTransformation.scale != 1f || actualTransformation.offset != Offset.Zero || actualTransformation.rotation != 0f)) {
                             FilledTonalButton(
@@ -798,255 +786,258 @@ fun PreviewRoute(
             ) {
                 if (state.items.isNotEmpty()) {
                     val actualPage = pagerState.currentPage % state.items.size
-                    val current = state.items[actualPage]
-                    Surface(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .navigationBarsPadding()
-                            .padding(16.dp),
-                        shape = RoundedCornerShape(32.dp),
-                        color = animatedDominantColor.copy(alpha = 0.95f),
-                        tonalElevation = 12.dp,
-                        shadowElevation = 8.dp
-                    ) {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            if (current.isPremium && !current.isUnlocked) {
-                                Text(
-                                    text = "Premium wallpaper · unlock with rewarded ad",
-                                    style = MaterialTheme.typography.labelLarge,
-                                    fontWeight = FontWeight.ExtraBold,
-                                    color = onDominantColor,
-                                    modifier = Modifier.padding(bottom = 12.dp),
-                                )
-                            }
-
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                FilledTonalButton(
-                                    onClick = {
-                                        scope.launch {
-                                            pagerState.animateScrollToPage(pagerState.currentPage - 1)
-                                        }
-                                    },
-                                    enabled = pagerState.currentPage > 0,
-                                    colors = androidx.compose.material3.ButtonDefaults.filledTonalButtonColors(
-                                        containerColor = Color.Transparent,
-                                        contentColor = onDominantColor,
-                                        disabledContentColor = onDominantColor.copy(alpha = 0.38f)
-                                    ),
-                                    contentPadding = PaddingValues(0.dp)
-                                ) {
-                                    Icon(Icons.Rounded.ChevronLeft, contentDescription = null)
-                                    Text("Previous", style = MaterialTheme.typography.labelLarge)
-                                }
-
-                                Surface(
-                                    shape = RoundedCornerShape(16.dp),
-                                    color = onDominantColor.copy(alpha = 0.1f),
-                                ) {
+                    val item = state.items[actualPage]
+                    
+                    if (item is Wallpaper) {
+                        Surface(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .navigationBarsPadding()
+                                .padding(16.dp),
+                            shape = RoundedCornerShape(32.dp),
+                            color = animatedDominantColor.copy(alpha = 0.95f),
+                            tonalElevation = 12.dp,
+                            shadowElevation = 8.dp
+                        ) {
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                if (item.isPremium && !item.isUnlocked && !state.isPremiumPassActive) {
                                     Text(
-                                        text = "${actualPage + 1} / ${state.items.size}",
-                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                                        text = "Premium wallpaper · unlock with rewarded ad",
                                         style = MaterialTheme.typography.labelLarge,
-                                        fontWeight = FontWeight.Bold,
+                                        fontWeight = FontWeight.ExtraBold,
                                         color = onDominantColor,
+                                        modifier = Modifier.padding(bottom = 12.dp),
                                     )
                                 }
 
-                                FilledTonalButton(
-                                    onClick = {
-                                        scope.launch {
-                                            pagerState.animateScrollToPage(pagerState.currentPage + 1)
-                                        }
-                                    },
-                                    enabled = pagerState.currentPage < state.items.size - 1,
-                                    colors = androidx.compose.material3.ButtonDefaults.filledTonalButtonColors(
-                                        containerColor = Color.Transparent,
-                                        contentColor = onDominantColor,
-                                        disabledContentColor = onDominantColor.copy(alpha = 0.38f)
-                                    ),
-                                    contentPadding = PaddingValues(0.dp)
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically,
                                 ) {
-                                    Text("Next", style = MaterialTheme.typography.labelLarge)
-                                    Icon(Icons.Rounded.ChevronRight, contentDescription = null)
+                                    FilledTonalButton(
+                                        onClick = {
+                                            scope.launch {
+                                                pagerState.animateScrollToPage(pagerState.currentPage - 1)
+                                            }
+                                        },
+                                        enabled = pagerState.currentPage > 0,
+                                        colors = androidx.compose.material3.ButtonDefaults.filledTonalButtonColors(
+                                            containerColor = Color.Transparent,
+                                            contentColor = onDominantColor,
+                                            disabledContentColor = onDominantColor.copy(alpha = 0.38f)
+                                        ),
+                                        contentPadding = PaddingValues(0.dp)
+                                    ) {
+                                        Icon(Icons.Rounded.ChevronLeft, contentDescription = null)
+                                        Text("Previous", style = MaterialTheme.typography.labelLarge)
+                                    }
+
+                                    Surface(
+                                        shape = RoundedCornerShape(16.dp),
+                                        color = onDominantColor.copy(alpha = 0.1f),
+                                    ) {
+                                        Text(
+                                            text = "${actualPage + 1} / ${state.items.size}",
+                                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                                            style = MaterialTheme.typography.labelLarge,
+                                            fontWeight = FontWeight.Bold,
+                                            color = onDominantColor,
+                                        )
+                                    }
+
+                                    FilledTonalButton(
+                                        onClick = {
+                                            scope.launch {
+                                                pagerState.animateScrollToPage(pagerState.currentPage + 1)
+                                            }
+                                        },
+                                        enabled = pagerState.currentPage < state.items.size - 1,
+                                        colors = androidx.compose.material3.ButtonDefaults.filledTonalButtonColors(
+                                            containerColor = Color.Transparent,
+                                            contentColor = onDominantColor,
+                                            disabledContentColor = onDominantColor.copy(alpha = 0.38f)
+                                        ),
+                                        contentPadding = PaddingValues(0.dp)
+                                    ) {
+                                        Text("Next", style = MaterialTheme.typography.labelLarge)
+                                        Icon(Icons.Rounded.ChevronRight, contentDescription = null)
+                                    }
                                 }
-                            }
 
-                            Spacer(modifier = Modifier.height(16.dp))
+                                Spacer(modifier = Modifier.height(16.dp))
 
-                            val screenWidth = LocalConfiguration.current.screenWidthDp
-                            val showLabels = screenWidth > 400
+                                val screenWidth = LocalConfiguration.current.screenWidthDp
+                                val showLabels = screenWidth > 400
 
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                FilledTonalButton(
-                                    onClick = {
-                                        val action = { viewModel.download(actualPage) }
-                                        if (current.isPremium && !current.isUnlocked) {
-                                            viewModel.requestUnlock(actualPage)
-                                        } else {
-                                            isAdLoading = true
-                                            adsViewModel.showDownloadRewarded(
-                                                activity = activity,
-                                                onReward = {
-                                                    isAdLoading = false
-                                                    action()
-                                                },
-                                                onDismiss = {
-                                                    isAdLoading = false
-                                                },
-                                                onError = { message ->
-                                                    isAdLoading = false
-                                                    scope.launch {
-                                                        val result = snackbarHostState.showSnackbar(
-                                                            message = message,
-                                                            actionLabel = "Retry",
-                                                            duration = SnackbarDuration.Long
-                                                        )
-                                                        if (result == SnackbarResult.ActionPerformed) {
-                                                            action()
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    FilledTonalButton(
+                                        onClick = {
+                                            val action = { viewModel.download(actualPage) }
+                                            if (item.isPremium && !item.isUnlocked) {
+                                                viewModel.requestUnlock(actualPage)
+                                            } else {
+                                                isAdLoading = true
+                                                adsViewModel.showDownloadRewarded(
+                                                    activity = activity,
+                                                    onReward = {
+                                                        isAdLoading = false
+                                                        action()
+                                                    },
+                                                    onDismiss = {
+                                                        isAdLoading = false
+                                                    },
+                                                    onError = { message ->
+                                                        isAdLoading = false
+                                                        scope.launch {
+                                                            val result = snackbarHostState.showSnackbar(
+                                                                message = message,
+                                                                actionLabel = "Retry",
+                                                                duration = SnackbarDuration.Long
+                                                            )
+                                                            if (result == SnackbarResult.ActionPerformed) {
+                                                                action()
+                                                            }
                                                         }
                                                     }
-                                                }
+                                                )
+                                            }
+                                        },
+                                        modifier = Modifier.weight(1f, fill = showLabels),
+                                        contentPadding = PaddingValues(horizontal = if (showLabels) 12.dp else 4.dp),
+                                        colors = androidx.compose.material3.ButtonDefaults.filledTonalButtonColors(
+                                            containerColor = onDominantColor.copy(alpha = 0.15f),
+                                            contentColor = onDominantColor
+                                        ),
+                                        enabled = !isAdLoading
+                                    ) {
+                                        if (isAdLoading && item.isPremium && !item.isUnlocked) {
+                                             CircularProgressIndicator(
+                                                modifier = Modifier.size(18.dp),
+                                                strokeWidth = 2.dp,
+                                                color = onDominantColor
+                                            )
+                                        } else {
+                                            Icon(
+                                                imageVector = Icons.Rounded.Download,
+                                                contentDescription = "Download",
+                                                modifier = Modifier.size(20.dp)
                                             )
                                         }
-                                    },
-                                    modifier = Modifier.weight(1f, fill = showLabels),
-                                    contentPadding = PaddingValues(horizontal = if (showLabels) 12.dp else 4.dp),
-                                    colors = androidx.compose.material3.ButtonDefaults.filledTonalButtonColors(
-                                        containerColor = onDominantColor.copy(alpha = 0.15f),
-                                        contentColor = onDominantColor
-                                    ),
-                                    enabled = !isAdLoading
-                                ) {
-                                    if (isAdLoading && current.isPremium && !current.isUnlocked) {
-                                         CircularProgressIndicator(
-                                            modifier = Modifier.size(18.dp),
-                                            strokeWidth = 2.dp,
-                                            color = onDominantColor
+                                        if (showLabels) {
+                                            Spacer(Modifier.width(6.dp))
+                                            Text(
+                                                text = if (isAdLoading && item.isPremium && !item.isUnlocked) "Loading..." else "Download",
+                                                style = MaterialTheme.typography.labelMedium,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis,
+                                                softWrap = false
+                                            )
+                                        }
+                                    }
+                                    FilledTonalButton(
+                                        onClick = {
+                                            if (item.isPremium && !item.isUnlocked) {
+                                                viewModel.requestUnlock(actualPage)
+                                            } else {
+                                                showSetSheet = true
+                                            }
+                                        },
+                                        modifier = Modifier.weight(1f, fill = showLabels),
+                                        contentPadding = PaddingValues(horizontal = if (showLabels) 12.dp else 4.dp),
+                                        colors = androidx.compose.material3.ButtonDefaults.filledTonalButtonColors(
+                                            containerColor = onDominantColor.copy(alpha = 0.15f),
+                                            contentColor = onDominantColor
                                         )
-                                    } else {
+                                    ) {
                                         Icon(
-                                            imageVector = Icons.Rounded.Download,
-                                            contentDescription = "Download",
+                                            imageVector = Icons.Rounded.Wallpaper,
+                                            contentDescription = "Set",
                                             modifier = Modifier.size(20.dp)
                                         )
                                     }
-                                    if (showLabels) {
-                                        Spacer(Modifier.width(6.dp))
-                                        Text(
-                                            text = if (isAdLoading && current.isPremium && !current.isUnlocked) "Loading..." else "Download",
-                                            style = MaterialTheme.typography.labelMedium,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis,
-                                            softWrap = false
+                                    FilledIconButton(
+                                        onClick = { viewModel.toggleFavorite(actualPage) },
+                                        modifier = Modifier.size(44.dp),
+                                        colors = IconButtonDefaults.filledIconButtonColors(
+                                            containerColor = onDominantColor.copy(alpha = 0.15f),
+                                            contentColor = onDominantColor
+                                        )
+                                    ) {
+                                        Icon(
+                                            imageVector = if (item.isFavorite) {
+                                                Icons.Rounded.Favorite
+                                            } else {
+                                                Icons.Rounded.FavoriteBorder
+                                            },
+                                            contentDescription = "Favorite",
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                    }
+                                    FilledIconButton(
+                                        onClick = {
+                                            if (item.isPremium && !item.isUnlocked) {
+                                                viewModel.requestUnlock(actualPage)
+                                            } else {
+                                                viewModel.share(actualPage)
+                                            }
+                                        },
+                                        modifier = Modifier.size(44.dp),
+                                        colors = IconButtonDefaults.filledIconButtonColors(
+                                            containerColor = onDominantColor.copy(alpha = 0.15f),
+                                            contentColor = onDominantColor
+                                        )
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Rounded.Share,
+                                            contentDescription = "Share",
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                    }
+                                    FilledIconButton(
+                                        onClick = { viewModel.setEditMode(!state.isEditMode) },
+                                        modifier = Modifier.size(44.dp),
+                                        colors = IconButtonDefaults.filledIconButtonColors(
+                                            containerColor = if (state.isEditMode) onDominantColor else onDominantColor.copy(alpha = 0.15f),
+                                            contentColor = if (state.isEditMode) animatedDominantColor else onDominantColor
+                                        )
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Rounded.AutoFixHigh,
+                                            contentDescription = "Edit Tools",
+                                            modifier = Modifier.size(20.dp)
                                         )
                                     }
                                 }
-                                FilledTonalButton(
-                                    onClick = {
-                                        if (current.isPremium && !current.isUnlocked) {
-                                            viewModel.requestUnlock(actualPage)
-                                        } else {
-                                            showSetSheet = true
-                                        }
-                                    },
-                                    modifier = Modifier.weight(1f, fill = showLabels),
-                                    contentPadding = PaddingValues(horizontal = if (showLabels) 12.dp else 4.dp),
-                                    colors = androidx.compose.material3.ButtonDefaults.filledTonalButtonColors(
-                                        containerColor = onDominantColor.copy(alpha = 0.15f),
-                                        contentColor = onDominantColor
-                                    )
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(top = 12.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
                                 ) {
-                                    Icon(
-                                        imageVector = Icons.Rounded.Wallpaper,
-                                        contentDescription = "Set",
-                                        modifier = Modifier.size(20.dp)
-                                    )
-                                }
-                                FilledIconButton(
-                                    onClick = { viewModel.toggleFavorite(actualPage) },
-                                    modifier = Modifier.size(44.dp),
-                                    colors = IconButtonDefaults.filledIconButtonColors(
-                                        containerColor = onDominantColor.copy(alpha = 0.15f),
-                                        contentColor = onDominantColor
-                                    )
-                                ) {
-                                    Icon(
-                                        imageVector = if (current.isFavorite) {
-                                            Icons.Rounded.Favorite
-                                        } else {
-                                            Icons.Rounded.FavoriteBorder
-                                        },
-                                        contentDescription = "Favorite",
-                                        modifier = Modifier.size(20.dp)
-                                    )
-                                }
-                                FilledIconButton(
-                                    onClick = {
-                                        if (current.isPremium && !current.isUnlocked) {
-                                            viewModel.requestUnlock(actualPage)
-                                        } else {
-                                            viewModel.share(actualPage)
-                                        }
-                                    },
-                                    modifier = Modifier.size(44.dp),
-                                    colors = IconButtonDefaults.filledIconButtonColors(
-                                        containerColor = onDominantColor.copy(alpha = 0.15f),
-                                        contentColor = onDominantColor
-                                    )
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Rounded.Share,
-                                        contentDescription = "Share",
-                                        modifier = Modifier.size(20.dp)
-                                    )
-                                }
-                                FilledIconButton(
-                                    onClick = { viewModel.setEditMode(!state.isEditMode) },
-                                    modifier = Modifier.size(44.dp),
-                                    colors = IconButtonDefaults.filledIconButtonColors(
-                                        containerColor = if (state.isEditMode) onDominantColor else onDominantColor.copy(alpha = 0.15f),
-                                        contentColor = if (state.isEditMode) animatedDominantColor else onDominantColor
-                                    )
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Rounded.AutoFixHigh,
-                                        contentDescription = "Edit Tools",
-                                        modifier = Modifier.size(20.dp)
-                                    )
-                                }
-                            }
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(top = 12.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                            ) {
-                                Text(
-                                    text = "${current.downloads} downloads",
-                                    color = onDominantColor.copy(alpha = 0.9f),
-                                    style = MaterialTheme.typography.labelMedium
-                                )
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(
-                                        imageVector = Icons.Rounded.Lock,
-                                        contentDescription = null,
-                                        tint = onDominantColor.copy(alpha = 0.7f),
-                                        modifier = Modifier.size(14.dp),
-                                    )
                                     Text(
-                                        text = "Tap image to hide controls",
-                                        color = onDominantColor.copy(alpha = 0.7f),
-                                        style = MaterialTheme.typography.labelSmall,
-                                        modifier = Modifier.padding(start = 4.dp),
+                                        text = "${item.downloads} downloads",
+                                        color = onDominantColor.copy(alpha = 0.9f),
+                                        style = MaterialTheme.typography.labelMedium
                                     )
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(
+                                            imageVector = Icons.Rounded.Lock,
+                                            contentDescription = null,
+                                            tint = onDominantColor.copy(alpha = 0.7f),
+                                            modifier = Modifier.size(14.dp),
+                                        )
+                                        Text(
+                                            text = "Tap image to hide controls",
+                                            color = onDominantColor.copy(alpha = 0.7f),
+                                            style = MaterialTheme.typography.labelSmall,
+                                            modifier = Modifier.padding(start = 4.dp),
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -1055,8 +1046,8 @@ fun PreviewRoute(
             }
 
             if (state.isWorking) {
-                val currentWallpaper = state.items.getOrNull(pagerState.currentPage % state.items.size)
-                val isPremiumAction = currentWallpaper?.isPremium == true && currentWallpaper?.isUnlocked == false
+                val currentItem = state.items.getOrNull(pagerState.currentPage % state.items.size)
+                val isPremiumAction = currentItem is Wallpaper && currentItem.isPremium && !currentItem.isUnlocked
                 val accentColor = if (isPremiumAction) Color(0xFFFFD700) else onDominantColor
 
                 Box(
@@ -1081,7 +1072,7 @@ fun PreviewRoute(
                             PremiumLoader(
                                 isPremium = isPremiumAction,
                                 color = onDominantColor,
-                                label = null // Just the spinner here
+                                label = null
                             )
 
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -1093,7 +1084,6 @@ fun PreviewRoute(
                                 )
                             }
 
-                            // "Progressing" feel with a sleek linear bar
                             LinearProgressIndicator(
                                 modifier = Modifier
                                     .width(120.dp)

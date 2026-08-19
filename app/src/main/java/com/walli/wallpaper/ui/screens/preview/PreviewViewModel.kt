@@ -38,7 +38,7 @@ data class ImageTransformation(
 )
 
 data class PreviewUiState(
-    val items: List<Wallpaper> = emptyList(),
+    val items: List<Any> = emptyList(), // Can be Wallpaper or Ad placeholder String
     val initialIndex: Int = 0,
     val controlsVisible: Boolean = true,
     val isWorking: Boolean = false,
@@ -50,6 +50,7 @@ data class PreviewUiState(
     val wallpaperApplied: Boolean = false,
     val isEditMode: Boolean = false,
     val areEditToolsUnlocked: Boolean = false,
+    val isPremiumPassActive: Boolean = false,
 )
 
 @HiltViewModel
@@ -81,30 +82,40 @@ class PreviewViewModel @Inject constructor(
                 previewSessionManager.session,
                 observeFavoriteIdsUseCase(),
                 wallpaperPreferences.unlockedWallpaperIds,
-                wallpaperPreferences.editToolsUnlockTime
-            ) { session, favorites, unlocks, editUnlockTime ->
+                wallpaperPreferences.editToolsUnlockTime,
+                wallpaperPreferences.premiumPassUnlockTime
+            ) { session, favorites, unlocks, editUnlockTime, premiumPassTime ->
                 val isEditUnlocked = System.currentTimeMillis() - editUnlockTime < 24 * 60 * 60 * 1000
-                Quadruple(session, favorites, unlocks, isEditUnlocked)
-            }.collect { (session, favorites, unlocks, isEditUnlocked) ->
+                val isPremiumPassActive = System.currentTimeMillis() - premiumPassTime < 24 * 60 * 60 * 1000
+                Quintuple(session, favorites, unlocks, isEditUnlocked, isPremiumPassActive)
+            }.collect { (session, favorites, unlocks, isEditUnlocked, isPremiumPassActive) ->
                 favoriteIds = favorites
                 unlockedIds = unlocks
                 _uiState.update { current ->
+                    val itemsWithAds = mutableListOf<Any>()
+                    session.items.forEachIndexed { index, wallpaper ->
+                        itemsWithAds.add(wallpaper.copy(
+                            isFavorite = wallpaper.id in favorites,
+                            isUnlocked = (wallpaper.id in unlocks) || isPremiumPassActive
+                        ))
+                        // Insert ad every 5 wallpapers
+                        if ((index + 1) % 5 == 0) {
+                            itemsWithAds.add("ad_preview_${index / 5}")
+                        }
+                    }
+
                     current.copy(
-                        items = session.items.map { wallpaper ->
-                            wallpaper.copy(
-                                isFavorite = wallpaper.id in favorites,
-                                isUnlocked = wallpaper.id in unlocks
-                            )
-                        },
+                        items = itemsWithAds,
                         initialIndex = session.initialIndex,
-                        areEditToolsUnlocked = isEditUnlocked
+                        areEditToolsUnlocked = isEditUnlocked || isPremiumPassActive,
+                        isPremiumPassActive = isPremiumPassActive
                     )
                 }
             }
         }
     }
 
-    private data class Quadruple<A, B, C, D>(val a: A, val b: B, val c: C, val d: D)
+    private data class Quintuple<A, B, C, D, E>(val a: A, val b: B, val c: C, val d: D, val e: E)
 
     private fun observeNetwork() {
         viewModelScope.launch {
@@ -124,8 +135,10 @@ class PreviewViewModel @Inject constructor(
 
     fun onPageSettled(index: Int) {
         viewModelScope.launch {
-            val wallpaper = _uiState.value.items.getOrNull(index) ?: return@launch
-            saveRecentWallpaperUseCase(wallpaper)
+            val item = _uiState.value.items.getOrNull(index)
+            if (item is Wallpaper) {
+                saveRecentWallpaperUseCase(item)
+            }
             
             // Automatically reset transformations and exit edit mode when moving to a new image
             _uiState.update { it.copy(
@@ -138,6 +151,12 @@ class PreviewViewModel @Inject constructor(
             if (session.hasNext && !requestInFlight && index >= _uiState.value.items.size - 4) {
                 loadMoreItems(session)
             }
+        }
+    }
+
+    fun removeAdItem(key: String) {
+        _uiState.update { current ->
+            current.copy(items = current.items.filterNot { it is String && it == key })
         }
     }
 
@@ -165,9 +184,9 @@ class PreviewViewModel @Inject constructor(
     }
 
     fun requestUnlock(index: Int) {
-        val wallpaper = _uiState.value.items.getOrNull(index) ?: return
-        if (wallpaper.isPremium && !wallpaper.isUnlocked) {
-            _uiState.update { it.copy(wallpaperToUnlock = wallpaper) }
+        val item = _uiState.value.items.getOrNull(index)
+        if (item is Wallpaper && item.isPremium && !item.isUnlocked) {
+            _uiState.update { it.copy(wallpaperToUnlock = item) }
         }
     }
 
@@ -182,42 +201,53 @@ class PreviewViewModel @Inject constructor(
         }
     }
 
-    fun toggleFavorite(index: Int) {
-        val wallpaper = _uiState.value.items.getOrNull(index) ?: return
+    fun unlockPremiumPass() {
         viewModelScope.launch {
-            toggleFavoriteUseCase(wallpaper)
+            wallpaperPreferences.unlockPremiumPass()
+            _uiState.update { it.copy(wallpaperToUnlock = null) }
+        }
+    }
+
+    fun toggleFavorite(index: Int) {
+        val item = _uiState.value.items.getOrNull(index)
+        if (item is Wallpaper) {
+            viewModelScope.launch {
+                toggleFavoriteUseCase(item)
+            }
         }
     }
 
     fun download(index: Int) {
-        val wallpaper = _uiState.value.items.getOrNull(index) ?: return
-        val transformation = _uiState.value.transformations[index] ?: ImageTransformation()
-        viewModelScope.launch {
-            setWorking(label = "Downloading…")
-            wallpaperDownloader.download(
-                url = wallpaper.imageUrl,
-                title = wallpaper.title,
-                scale = transformation.scale,
-                offsetX = transformation.offset.x,
-                offsetY = transformation.offset.y,
-                rotation = transformation.rotation,
-                brightness = transformation.brightness,
-                contrast = transformation.contrast,
-                blur = transformation.blur,
-                saturation = transformation.saturation,
-                hue = transformation.hue,
-                structure = transformation.structure,
-                details = transformation.details,
-                applier = wallpaperApplier
-            )
-                .onSuccess {
-                    incrementDownloadUseCase(wallpaper.id)
-                    setMessage("Saved to Downloads")
-                }
-                .onFailure { throwable ->
-                    setMessage(throwable.message ?: "Download failed")
-                }
-            clearWorking()
+        val item = _uiState.value.items.getOrNull(index)
+        if (item is Wallpaper) {
+            val transformation = _uiState.value.transformations[index] ?: ImageTransformation()
+            viewModelScope.launch {
+                setWorking(label = "Downloading…")
+                wallpaperDownloader.download(
+                    url = item.imageUrl,
+                    title = item.title,
+                    scale = transformation.scale,
+                    offsetX = transformation.offset.x,
+                    offsetY = transformation.offset.y,
+                    rotation = transformation.rotation,
+                    brightness = transformation.brightness,
+                    contrast = transformation.contrast,
+                    blur = transformation.blur,
+                    saturation = transformation.saturation,
+                    hue = transformation.hue,
+                    structure = transformation.structure,
+                    details = transformation.details,
+                    applier = wallpaperApplier
+                )
+                    .onSuccess {
+                        incrementDownloadUseCase(item.id)
+                        setMessage("Saved to Downloads")
+                    }
+                    .onFailure { throwable ->
+                        setMessage(throwable.message ?: "Download failed")
+                    }
+                clearWorking()
+            }
         }
     }
 
@@ -301,61 +331,65 @@ class PreviewViewModel @Inject constructor(
     }
 
     fun applyWallpaper(index: Int, target: WallpaperTarget) {
-        val wallpaper = _uiState.value.items.getOrNull(index) ?: return
-        val transformation = _uiState.value.transformations[index] ?: ImageTransformation()
-        viewModelScope.launch {
-            setWorking(label = "Applying wallpaper…")
-            wallpaperApplier.apply(
-                url = wallpaper.imageUrl,
-                target = target,
-                scale = transformation.scale,
-                offsetX = transformation.offset.x,
-                offsetY = transformation.offset.y,
-                rotation = transformation.rotation,
-                brightness = transformation.brightness,
-                contrast = transformation.contrast,
-                blur = transformation.blur,
-                saturation = transformation.saturation,
-                hue = transformation.hue,
-                structure = transformation.structure,
-                details = transformation.details,
-            )
-                .onSuccess {
-                    setMessage("Wallpaper applied to ${target.label.lowercase()}")
-                    _uiState.update { it.copy(wallpaperApplied = true) }
-                }
-                .onFailure { throwable ->
-                    setMessage(throwable.message ?: "Wallpaper apply failed")
-                }
-            clearWorking()
+        val item = _uiState.value.items.getOrNull(index)
+        if (item is Wallpaper) {
+            val transformation = _uiState.value.transformations[index] ?: ImageTransformation()
+            viewModelScope.launch {
+                setWorking(label = "Applying wallpaper…")
+                wallpaperApplier.apply(
+                    url = item.imageUrl,
+                    target = target,
+                    scale = transformation.scale,
+                    offsetX = transformation.offset.x,
+                    offsetY = transformation.offset.y,
+                    rotation = transformation.rotation,
+                    brightness = transformation.brightness,
+                    contrast = transformation.contrast,
+                    blur = transformation.blur,
+                    saturation = transformation.saturation,
+                    hue = transformation.hue,
+                    structure = transformation.structure,
+                    details = transformation.details,
+                )
+                    .onSuccess {
+                        setMessage("Wallpaper applied to ${target.label.lowercase()}")
+                        _uiState.update { it.copy(wallpaperApplied = true) }
+                    }
+                    .onFailure { throwable ->
+                        setMessage(throwable.message ?: "Wallpaper apply failed")
+                    }
+                clearWorking()
+            }
         }
     }
 
     fun share(index: Int) {
-        val wallpaper = _uiState.value.items.getOrNull(index) ?: return
-        val transformation = _uiState.value.transformations[index] ?: ImageTransformation()
-        viewModelScope.launch {
-            setWorking(label = "Preparing share…")
-            shareManager.share(
-                url = wallpaper.imageUrl,
-                title = wallpaper.title,
-                scale = transformation.scale,
-                offsetX = transformation.offset.x,
-                offsetY = transformation.offset.y,
-                rotation = transformation.rotation,
-                brightness = transformation.brightness,
-                contrast = transformation.contrast,
-                blur = transformation.blur,
-                saturation = transformation.saturation,
-                hue = transformation.hue,
-                structure = transformation.structure,
-                details = transformation.details,
-                applier = wallpaperApplier
-            )
-                .onFailure { throwable ->
-                    setMessage(throwable.message ?: "Share failed")
-                }
-            clearWorking()
+        val item = _uiState.value.items.getOrNull(index)
+        if (item is Wallpaper) {
+            val transformation = _uiState.value.transformations[index] ?: ImageTransformation()
+            viewModelScope.launch {
+                setWorking(label = "Preparing share…")
+                shareManager.share(
+                    url = item.imageUrl,
+                    title = item.title,
+                    scale = transformation.scale,
+                    offsetX = transformation.offset.x,
+                    offsetY = transformation.offset.y,
+                    rotation = transformation.rotation,
+                    brightness = transformation.brightness,
+                    contrast = transformation.contrast,
+                    blur = transformation.blur,
+                    saturation = transformation.saturation,
+                    hue = transformation.hue,
+                    structure = transformation.structure,
+                    details = transformation.details,
+                    applier = wallpaperApplier
+                )
+                    .onFailure { throwable ->
+                        setMessage(throwable.message ?: "Share failed")
+                    }
+                clearWorking()
+            }
         }
     }
 

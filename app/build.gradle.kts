@@ -55,6 +55,7 @@ android {
         buildConfigField("String", "ADMOB_NATIVE_HOME", "\"${localProperties.getProperty("ADMOB_NATIVE_HOME") ?: ""}\"")
         buildConfigField("String", "ADMOB_NATIVE_CATEGORIES", "\"${localProperties.getProperty("ADMOB_NATIVE_CATEGORIES") ?: ""}\"")
         buildConfigField("String", "ADMOB_NATIVE_WALLPAPERS", "\"${localProperties.getProperty("ADMOB_NATIVE_WALLPAPERS") ?: ""}\"")
+        buildConfigField("String", "ADMOB_NATIVE_PREVIEW", "\"${localProperties.getProperty("ADMOB_NATIVE_PREVIEW") ?: ""}\"")
     }
 
     buildTypes {

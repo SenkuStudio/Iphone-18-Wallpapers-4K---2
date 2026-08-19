@@ -27,7 +27,7 @@ fun UnlockPremiumDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Unlock Premium Wallpaper") },
+        title = { Text("Unlock Premium Content") },
         text = {
             if (isLoading) {
                 Box(
@@ -42,29 +42,36 @@ fun UnlockPremiumDialog(
                     )
                 }
             } else {
-                Text("Watch a short video to unlock this premium wallpaper and support our creators.")
+                androidx.compose.foundation.layout.Column {
+                    Text("Watch a short video to unlock this premium wallpaper.")
+                }
             }
         },
         confirmButton = {
-            Button(
-                onClick = onUnlock,
-                enabled = !isLoading,
+            androidx.compose.foundation.layout.Column(
+                horizontalAlignment = Alignment.End,
+                verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp)
             ) {
-                if (isLoading) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(18.dp),
-                        strokeWidth = 2.dp,
-                        color = MaterialTheme.colorScheme.onPrimary
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
+                Button(
+                    onClick = onUnlock,
+                    enabled = !isLoading,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    if (isLoading) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(18.dp),
+                            strokeWidth = 2.dp,
+                            color = MaterialTheme.colorScheme.onPrimary
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                    }
+                    Text(if (isLoading) "Loading Ad..." else "Watch Ad & Unlock This")
                 }
-                Text(if (isLoading) "Loading Ad..." else "Watch Ad & Unlock")
             }
         },
         dismissButton = {
             TextButton(
                 onClick = onDismiss,
-                // Cancel button stays enabled as per UX requirements
             ) {
                 Text("Cancel")
             }

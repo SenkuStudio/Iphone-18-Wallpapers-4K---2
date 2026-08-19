@@ -58,7 +58,8 @@ fun NativeAdItem(
     adUnitId: String,
     modifier: Modifier = Modifier,
     key: String? = null,
-    adsViewModel: AdsViewModel = hiltViewModel()
+    adsViewModel: AdsViewModel = hiltViewModel(),
+    onAdFailed: (() -> Unit)? = null
 ) {
     val context = LocalContext.current
     val TAG = "NativeAdItem"
@@ -87,6 +88,7 @@ fun NativeAdItem(
                     override fun onAdFailedToLoad(error: LoadAdError) {
                         isLoading = false
                         isError = true
+                        onAdFailed?.invoke()
                     }
                 })
                 .withNativeAdOptions(NativeAdOptions.Builder()
@@ -124,17 +126,26 @@ fun NativeAdItem(
                             .padding(12.dp),
                         factory = { ctx ->
                             val adView = LayoutInflater.from(ctx).inflate(R.layout.ad_unified, null) as NativeAdView
-                            adView.post {
-                                try {
-                                    populateNativeAdView(ad, adView)
-                                } catch (e: Exception) {
-                                    Log.e(TAG, "Error populating native ad: ${e.message}")
-                                }
+                            try {
+                                populateNativeAdView(ad, adView)
+                            } catch (e: Exception) {
+                                Log.e(TAG, "Error populating native ad in factory: ${e.message}")
                             }
                             adView
                         },
                         update = { adView ->
-                            populateNativeAdView(ad, adView)
+                            try {
+                                populateNativeAdView(ad, adView)
+                            } catch (e: Exception) {
+                                Log.e(TAG, "Error populating native ad in update: ${e.message}")
+                            }
+                        },
+                        onRelease = { adView ->
+                            try {
+                                adView.destroy()
+                            } catch (e: Exception) {
+                                Log.e(TAG, "Error destroying ad view: ${e.message}")
+                            }
                         }
                     )
                 }
@@ -210,6 +221,9 @@ fun NativeAdShimmer(modifier: Modifier = Modifier) {
 }
 
 private fun populateNativeAdView(nativeAd: NativeAd, adView: NativeAdView) {
+    // If the adView is already being used for this ad, we can skip some work
+    // but AdMob recommends re-setting if views might have been recycled.
+
     adView.headlineView = adView.findViewById(R.id.ad_headline)
     adView.bodyView = adView.findViewById(R.id.ad_body)
     adView.callToActionView = adView.findViewById(R.id.ad_call_to_action)
@@ -222,7 +236,7 @@ private fun populateNativeAdView(nativeAd: NativeAd, adView: NativeAdView) {
 
     (adView.headlineView as? TextView)?.apply {
         text = nativeAd.headline
-        visibility = View.VISIBLE
+        visibility = if (nativeAd.headline != null) View.VISIBLE else View.INVISIBLE
     }
     
     if (nativeAd.body == null) {
@@ -246,10 +260,13 @@ private fun populateNativeAdView(nativeAd: NativeAd, adView: NativeAdView) {
         adView.iconView?.visibility = View.VISIBLE
     }
 
-    nativeAd.mediaContent?.let {
-        adView.mediaView?.setMediaContent(it)
-        adView.mediaView?.visibility = View.VISIBLE
-    } ?: run {
+    val mediaContent = nativeAd.mediaContent
+    if (mediaContent != null) {
+        adView.mediaView?.let { mv ->
+            mv.setMediaContent(mediaContent)
+            mv.visibility = View.VISIBLE
+        }
+    } else {
         adView.mediaView?.visibility = View.GONE
     }
 
@@ -272,5 +289,10 @@ private fun populateNativeAdView(nativeAd: NativeAd, adView: NativeAdView) {
         adView.advertiserView?.visibility = View.VISIBLE
     }
 
-    adView.setNativeAd(nativeAd)
+    // Assign the native ad object to the native ad view.
+    try {
+        adView.setNativeAd(nativeAd)
+    } catch (e: Exception) {
+        Log.e("NativeAdItem", "Failed to setNativeAd: ${e.message}")
+    }
 }

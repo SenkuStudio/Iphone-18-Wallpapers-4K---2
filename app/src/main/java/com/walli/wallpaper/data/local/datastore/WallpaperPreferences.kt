@@ -19,6 +19,7 @@ class WallpaperPreferences @Inject constructor(
 ) {
     private val unlockedWallpapersKey = stringSetPreferencesKey("unlocked_wallpapers")
     private val editToolsUnlockTimeKey = longPreferencesKey("edit_tools_unlock_time")
+    private val premiumPassUnlockTimeKey = longPreferencesKey("premium_pass_unlock_time")
 
     val unlockedWallpaperIds: Flow<Set<String>> = context.dataStore.data
         .map { preferences ->
@@ -28,6 +29,11 @@ class WallpaperPreferences @Inject constructor(
     val editToolsUnlockTime: Flow<Long> = context.dataStore.data
         .map { preferences ->
             preferences[editToolsUnlockTimeKey] ?: 0L
+        }
+
+    val premiumPassUnlockTime: Flow<Long> = context.dataStore.data
+        .map { preferences ->
+            preferences[premiumPassUnlockTimeKey] ?: 0L
         }
 
     suspend fun unlockWallpaper(id: String) {
@@ -40,6 +46,12 @@ class WallpaperPreferences @Inject constructor(
     suspend fun unlockEditTools() {
         context.dataStore.edit { preferences ->
             preferences[editToolsUnlockTimeKey] = System.currentTimeMillis()
+        }
+    }
+
+    suspend fun unlockPremiumPass() {
+        context.dataStore.edit { preferences ->
+            preferences[premiumPassUnlockTimeKey] = System.currentTimeMillis()
         }
     }
 }

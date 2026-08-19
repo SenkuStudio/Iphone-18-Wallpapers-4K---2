@@ -76,7 +76,7 @@ fun CategoryWallpapersRoute(
             val capabilities = connectivityManager.getNetworkCapabilities(connectivityManager.activeNetwork)
             val isOnline = capabilities?.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET) == true
 
-            val isUnlocked = state.unlockedIds.contains(wallpaper.id)
+            val isUnlocked = state.unlockedIds.contains(wallpaper.id) || state.isPremiumPassActive
             if (!isOnline && wallpaper.isPremium && !isUnlocked) {
                 Toast.makeText(context, "Internet required to unlock premium content", Toast.LENGTH_SHORT).show()
             } else {
@@ -241,7 +241,7 @@ private fun CategoryWallpapersScreen(
                         WallpaperCard(
                             wallpaper = wallpaper,
                             isFavorite = state.favoriteIds.contains(wallpaper.id),
-                            isUnlocked = state.unlockedIds.contains(wallpaper.id),
+                            isUnlocked = state.unlockedIds.contains(wallpaper.id) || state.isPremiumPassActive,
                             onClick = { onWallpaperClick(index) },
                             sharedTransitionScope = sharedTransitionScope,
                             animatedVisibilityScope = animatedVisibilityScope

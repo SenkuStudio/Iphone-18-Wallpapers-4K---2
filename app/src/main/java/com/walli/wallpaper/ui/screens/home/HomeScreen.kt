@@ -129,7 +129,7 @@ fun HomeRoute(
             val capabilities = connectivityManager.getNetworkCapabilities(connectivityManager.activeNetwork)
             val isOnline = capabilities?.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET) == true
 
-            val isUnlocked = state.unlockedIds.contains(wallpaper.id)
+            val isUnlocked = state.unlockedIds.contains(wallpaper.id) || state.isPremiumPassActive
             if (!isOnline && wallpaper.isPremium && !isUnlocked) {
                 android.widget.Toast.makeText(context, "Internet required to unlock premium content", android.widget.Toast.LENGTH_SHORT).show()
             } else {
@@ -310,7 +310,7 @@ private fun HomeScreen(
                                     FeaturedHeroCard(
                                         wallpaper = featuredWallpaper,
                                         isFavorite = state.favoriteIds.contains(featuredWallpaper.id),
-                                        isUnlocked = state.unlockedIds.contains(featuredWallpaper.id),
+                                        isUnlocked = state.unlockedIds.contains(featuredWallpaper.id) || state.isPremiumPassActive,
                                         onClick = { 
                                             val index = state.wallpapers.indexOfFirst { it.id == featuredWallpaper.id }
                                             onWallpaperClick(index.coerceAtLeast(0)) 
@@ -342,7 +342,7 @@ private fun HomeScreen(
                                                     WallpaperCard(
                                                         wallpaper = wallpaper,
                                                         isFavorite = state.favoriteIds.contains(wallpaper.id),
-                                                        isUnlocked = state.unlockedIds.contains(wallpaper.id),
+                                                        isUnlocked = state.unlockedIds.contains(wallpaper.id) || state.isPremiumPassActive,
                                                         onClick = {
                                                             val index =
                                                                 state.wallpapers.indexOfFirst { it.id == wallpaper.id }
@@ -440,7 +440,7 @@ private fun HomeScreen(
                                             WallpaperCard(
                                                 wallpaper = wallpaper,
                                                 isFavorite = state.favoriteIds.contains(wallpaper.id),
-                                                isUnlocked = state.unlockedIds.contains(wallpaper.id),
+                                                isUnlocked = state.unlockedIds.contains(wallpaper.id) || state.isPremiumPassActive,
                                                 onClick = { onWallpaperClick(index) },
                                                 sharedTransitionScope = sharedTransitionScope,
                                                 animatedVisibilityScope = animatedVisibilityScope

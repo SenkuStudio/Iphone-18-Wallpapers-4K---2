@@ -88,4 +88,8 @@ class AdsViewModel @Inject constructor(
     }
 
     fun getNativeAd(adUnitId: String, key: String? = null) = adMobManager.getNativeAd(adUnitId, key)
+
+    fun preloadNativeAd(adUnitId: String) {
+        adMobManager.loadNativeAd(adUnitId)
+    }
 }

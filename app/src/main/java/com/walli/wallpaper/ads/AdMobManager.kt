@@ -48,7 +48,8 @@ class AdMobManager @Inject constructor(
     private var downloadRewardedAd: RewardedAd? = null
     private var proToolsRewardedAd: RewardedAd? = null
 
-    // Multiple pools for unique Ad IDs
+    // Native Ad Pools
+    private var previewNativeAd: NativeAd? = null
     private val nativeAdsPools = mutableMapOf<String, MutableList<NativeAd>>()
     private val assignedNativeAds = mutableMapOf<String, NativeAd>()
     private val maxNativeAdsPerId = 5
@@ -112,6 +113,7 @@ class AdMobManager @Inject constructor(
         loadNativeAd(BuildConfig.ADMOB_NATIVE_HOME)
         loadNativeAd(BuildConfig.ADMOB_NATIVE_CATEGORIES)
         loadNativeAd(BuildConfig.ADMOB_NATIVE_WALLPAPERS)
+        loadNativeAd(BuildConfig.ADMOB_NATIVE_PREVIEW)
     }
 
     fun maybeShowCategoryInterstitial(activity: Activity?, onContinue: () -> Unit) {
@@ -347,7 +349,7 @@ class AdMobManager @Inject constructor(
         )
     }
 
-    private fun loadNativeAd(adUnitId: String) {
+    fun loadNativeAd(adUnitId: String) {
         if (adUnitId.isBlank()) return
         
         val pool = synchronized(nativeAdsPools) {
@@ -389,7 +391,11 @@ class AdMobManager @Inject constructor(
 
     fun getNativeAd(adUnitId: String, key: String? = null): NativeAd? {
         if (key != null) {
-            assignedNativeAds[key]?.let { return it }
+            val assignedAd = assignedNativeAds[key]
+            if (assignedAd != null) {
+                // Ensure the ad isn't destroyed (this is rare but possible if managed elsewhere)
+                return assignedAd
+            }
         }
 
         val ad = synchronized(nativeAdsPools) {
@@ -406,9 +412,8 @@ class AdMobManager @Inject constructor(
         }
 
         if (isAppInForeground) {
-            android.os.Handler(android.os.Looper.getMainLooper()).post {
-                loadNativeAd(adUnitId)
-            }
+            // Using a more immediate load if pool is low
+            loadNativeAd(adUnitId)
         }
         return ad
     }

@@ -148,15 +148,20 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch {
             combine(
                 observeFavoriteIdsUseCase(),
-                wallpaperPreferences.unlockedWallpaperIds
-            ) { favorites, unlocks ->
+                wallpaperPreferences.unlockedWallpaperIds,
+                wallpaperPreferences.premiumPassUnlockTime
+            ) { favorites, unlocks, premiumPassTime ->
+                val isPremiumPassActive = System.currentTimeMillis() - premiumPassTime < 24 * 60 * 60 * 1000
+                Triple(favorites, unlocks, isPremiumPassActive)
+            }.collect { (favorites, unlocks, isPremiumPassActive) ->
                 _uiState.update { state ->
                     state.copy(
                         favoriteIds = favorites,
-                        unlockedIds = unlocks
+                        unlockedIds = unlocks,
+                        isPremiumPassActive = isPremiumPassActive
                     )
                 }
-            }.collect {}
+            }
         }
     }
 
@@ -185,6 +190,13 @@ class HomeViewModel @Inject constructor(
             if (index != -1) {
                 openPreview(index)
             }
+        }
+    }
+
+    fun unlockPremiumPass() {
+        viewModelScope.launch {
+            wallpaperPreferences.unlockPremiumPass()
+            _uiState.update { it.copy(wallpaperToUnlock = null) }
         }
     }
 
