@@ -17,4 +17,5 @@ data class HomeUiState(
     val hasNext: Boolean = true,
     val isOnline: Boolean = true,
     val wallpaperToUnlock: Wallpaper? = null,
+    val featuredWallpapers: List<Wallpaper> = emptyList(),
 )

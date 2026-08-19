@@ -302,14 +302,17 @@ private fun HomeScreen(
                             horizontalArrangement = Arrangement.spacedBy(16.dp),
                             verticalArrangement = Arrangement.spacedBy(16.dp),
                         ) {
-                            if (state.wallpapers.isNotEmpty()) {
+                            if (state.featuredWallpapers.isNotEmpty()) {
                                 item(span = { GridItemSpan(maxLineSpan) }) {
-                                    val firstWallpaper = state.wallpapers.first()
+                                    val featuredWallpaper = state.featuredWallpapers.first()
                                     FeaturedHeroCard(
-                                        wallpaper = firstWallpaper,
-                                        isFavorite = state.favoriteIds.contains(firstWallpaper.id),
-                                        isUnlocked = state.unlockedIds.contains(firstWallpaper.id),
-                                        onClick = { onWallpaperClick(0) },
+                                        wallpaper = featuredWallpaper,
+                                        isFavorite = state.favoriteIds.contains(featuredWallpaper.id),
+                                        isUnlocked = state.unlockedIds.contains(featuredWallpaper.id),
+                                        onClick = { 
+                                            val index = state.wallpapers.indexOfFirst { it.id == featuredWallpaper.id }
+                                            onWallpaperClick(index.coerceAtLeast(0)) 
+                                        },
                                         sharedTransitionScope = sharedTransitionScope,
                                         animatedVisibilityScope = animatedVisibilityScope
                                     )

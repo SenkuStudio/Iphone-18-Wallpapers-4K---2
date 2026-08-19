@@ -58,6 +58,23 @@ class HomeViewModel @Inject constructor(
         observeCache()
         loadCategories()
         refresh()
+        startFeaturedRotation()
+    }
+
+    private fun startFeaturedRotation() {
+        viewModelScope.launch {
+            while (true) {
+                delay(45000)
+                if (_uiState.value.featuredWallpapers.size > 1) {
+                    _uiState.update { state ->
+                        val newList = state.featuredWallpapers.toMutableList()
+                        val first = newList.removeAt(0)
+                        newList.add(first)
+                        state.copy(featuredWallpapers = newList)
+                    }
+                }
+            }
+        }
     }
 
     private fun observeNetwork() {
@@ -224,6 +241,7 @@ class HomeViewModel @Inject constructor(
                 _uiState.update {
                     it.copy(
                         wallpapers = merged,
+                        featuredWallpapers = if (reset) merged.filter { w -> w.isFeatured }.shuffled() else it.featuredWallpapers,
                         hasNext = page.hasNext,
                         loadState = if (merged.isEmpty()) LoadState.Empty else LoadState.Idle,
                     )

@@ -17,7 +17,8 @@ internal fun WallpaperDto.toDomainOrNull(): Wallpaper? {
         thumbnailUrl = thumbnailUrl,
         downloads = downloads,
         createdAt = createdAt,
-        isPremium = isFeatured,
+        isPremium = isPremium,
+        isFeatured = isFeatured,
         blurHash = blurHash,
     )
 }
