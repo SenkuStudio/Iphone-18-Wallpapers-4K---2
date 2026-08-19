@@ -111,8 +111,8 @@ fun FavoritesRoute(
                                 )
                             }
 
-                            // Insert Native Ad every 6 items
-                            if (index > 0 && (index + 1) % 6 == 0) {
+                            // Insert Native Ad every 4 items
+                            if (index > 0 && (index + 1) % 4 == 0) {
                                 item(
                                     key = "native-ad-${index}",
                                     span = { GridItemSpan(maxLineSpan) },
@@ -131,7 +131,8 @@ fun FavoritesRoute(
                             if (state.items.isNotEmpty()) {
                                 BannerAd(
                                     adUnitId = BuildConfig.ADMOB_BANNER_FAVORITES,
-                                    modifier = Modifier.padding(top = 16.dp)
+                                    modifier = Modifier.padding(top = 16.dp),
+                                    collapsible = "bottom"
                                 )
                             }
                         }

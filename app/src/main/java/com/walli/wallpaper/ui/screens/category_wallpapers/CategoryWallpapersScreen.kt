@@ -248,8 +248,8 @@ private fun CategoryWallpapersScreen(
                         )
                     }
 
-                    // Insert Native Ad every 6 items
-                    if (index > 0 && (index + 1) % 6 == 0) {
+                    // Insert Native Ad every 4 items
+                    if (index > 0 && (index + 1) % 4 == 0) {
                         item(
                             key = "cat-wallpapers-ad-$index",
                             span = { GridItemSpan(maxLineSpan) },
@@ -274,7 +274,8 @@ private fun CategoryWallpapersScreen(
                     if (state.wallpapers.isNotEmpty()) {
                         BannerAd(
                             adUnitId = BuildConfig.ADMOB_BANNER_CATEGORY_WALLPAPERS,
-                            modifier = Modifier.padding(top = 16.dp)
+                            modifier = Modifier.padding(top = 16.dp),
+                            collapsible = "bottom"
                         )
                     }
                 }

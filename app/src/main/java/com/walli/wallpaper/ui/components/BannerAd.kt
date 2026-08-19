@@ -1,5 +1,6 @@
 package com.walli.wallpaper.ui.components
 
+import android.os.Bundle
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
@@ -9,6 +10,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import com.google.ads.mediation.admob.AdMobAdapter
 import com.google.android.gms.ads.AdRequest
 import com.google.android.gms.ads.AdSize
 import com.google.android.gms.ads.AdView
@@ -16,7 +18,8 @@ import com.google.android.gms.ads.AdView
 @Composable
 fun BannerAd(
     adUnitId: String,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    collapsible: String? = null
 ) {
     val context = LocalContext.current
     val configuration = LocalConfiguration.current
@@ -40,7 +43,16 @@ fun BannerAd(
             AdView(ctx).apply {
                 this.adUnitId = adUnitId
                 setAdSize(adSize)
-                loadAd(AdRequest.Builder().build())
+                
+                val adRequestBuilder = AdRequest.Builder()
+                if (collapsible != null) {
+                    val extras = Bundle().apply {
+                        putString("collapsible", collapsible)
+                    }
+                    adRequestBuilder.addNetworkExtrasBundle(AdMobAdapter::class.java, extras)
+                }
+                
+                loadAd(adRequestBuilder.build())
             }
         },
         update = { _ ->

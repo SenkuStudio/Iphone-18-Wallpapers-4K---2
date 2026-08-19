@@ -63,8 +63,10 @@ class AdMobManager @Inject constructor(
     val isRewardedLoaded = _isRewardedLoaded.asStateFlow()
 
     private var lastAdShowTime: Long = 0
-    private var meaningfulOpenCounter = 0
-    private var nextThreshold = (4..6).random()
+    private var homeMeaningfulOpenCounter = 0
+    private var categoryMeaningfulOpenCounter = 0
+    private var nextHomeThreshold = (4..6).random()
+    private var nextCategoryThreshold = (3..5).random()
     private val adCooldownMillis = (60..120).random() * 1000L
 
     private var isAppInForeground = false
@@ -113,7 +115,32 @@ class AdMobManager @Inject constructor(
     }
 
     fun maybeShowCategoryInterstitial(activity: Activity?, onContinue: () -> Unit) {
-        onContinue()
+        categoryMeaningfulOpenCounter++
+
+        val currentTime = System.currentTimeMillis()
+        val isCooldownOver = (currentTime - lastAdShowTime) >= adCooldownMillis
+        val isThresholdReached = categoryMeaningfulOpenCounter >= nextCategoryThreshold
+
+        if (!isThresholdReached || !isCooldownOver || categoryInterstitialAd == null || activity == null) {
+            onContinue()
+            if (categoryInterstitialAd == null && isAppInForeground) {
+                loadInterstitial(BuildConfig.ADMOB_INTERSTITIAL_CATEGORY) { categoryInterstitialAd = it }
+            }
+            return
+        }
+
+        showInterstitial(
+            activity,
+            categoryInterstitialAd,
+            {
+                categoryInterstitialAd = null
+                lastAdShowTime = System.currentTimeMillis()
+                categoryMeaningfulOpenCounter = 0
+                nextCategoryThreshold = (3..5).random()
+            },
+            BuildConfig.ADMOB_INTERSTITIAL_CATEGORY,
+            onContinue
+        )
     }
 
     fun maybeShowSetWallpaperInterstitial(activity: Activity?, onContinue: () -> Unit) {
@@ -121,11 +148,11 @@ class AdMobManager @Inject constructor(
     }
 
     fun maybeShowHomeInterstitial(activity: Activity?, onContinue: () -> Unit) {
-        meaningfulOpenCounter++
+        homeMeaningfulOpenCounter++
 
         val currentTime = System.currentTimeMillis()
         val isCooldownOver = (currentTime - lastAdShowTime) >= adCooldownMillis
-        val isThresholdReached = meaningfulOpenCounter >= nextThreshold
+        val isThresholdReached = homeMeaningfulOpenCounter >= nextHomeThreshold
 
         if (!isThresholdReached || !isCooldownOver || homeInterstitialAd == null || activity == null) {
             onContinue()
@@ -142,8 +169,8 @@ class AdMobManager @Inject constructor(
             {
                 homeInterstitialAd = null
                 lastAdShowTime = System.currentTimeMillis()
-                meaningfulOpenCounter = 0
-                nextThreshold = (4..6).random()
+                homeMeaningfulOpenCounter = 0
+                nextHomeThreshold = (4..6).random()
             },
             BuildConfig.ADMOB_INTERSTITIAL_HOME,
             onContinue

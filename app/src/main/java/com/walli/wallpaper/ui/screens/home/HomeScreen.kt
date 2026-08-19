@@ -155,6 +155,8 @@ fun HomeRoute(
             activity = activity,
             onReward = {
                 viewModel.unlockWallpaper(wallpaper)
+                // Skip interstitial when opening preview after a rewarded ad
+                viewModel.openPreview(state.wallpapers.indexOf(wallpaper))
                 onOpenPreview()
             },
             onDismiss = {
@@ -354,15 +356,6 @@ private fun HomeScreen(
                                         }
                                     }
                                 }
-
-                                item(span = { GridItemSpan(maxLineSpan) }) {
-                                    if (state.recentWallpapers.isNotEmpty()) {
-                                        BannerAd(
-                                            adUnitId = BuildConfig.ADMOB_BANNER_HOME_TOP,
-                                            modifier = Modifier.padding(top = 8.dp, bottom = 16.dp)
-                                        )
-                                    }
-                                }
                             }
 
                             item(span = { GridItemSpan(maxLineSpan) }) {
@@ -454,8 +447,8 @@ private fun HomeScreen(
                                             )
                                         }
 
-                                        // Insert Native Ad every 6 items
-                                        if (index > 0 && (index + 1) % 6 == 0) {
+                                        // Insert Native Ad every 4 items
+                                        if (index > 0 && (index + 1) % 4 == 0) {
                                             item(
                                                 key = "native-ad-${index}",
                                                 span = { GridItemSpan(maxLineSpan) },
@@ -483,7 +476,8 @@ private fun HomeScreen(
                                 if (state.loadState is LoadState.Appending || state.wallpapers.isNotEmpty()) {
                                     BannerAd(
                                         adUnitId = BuildConfig.ADMOB_BANNER_HOME_BOTTOM,
-                                        modifier = Modifier.padding(top = 16.dp)
+                                        modifier = Modifier.padding(top = 16.dp),
+                                        collapsible = "bottom"
                                     )
                                 }
                             }
@@ -569,7 +563,7 @@ private fun DrawerContent(onItemClick: (DrawerItem) -> Unit) {
                 modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
             )
         }
-        
+
         Spacer(modifier = Modifier.weight(1f))
         
         Text(

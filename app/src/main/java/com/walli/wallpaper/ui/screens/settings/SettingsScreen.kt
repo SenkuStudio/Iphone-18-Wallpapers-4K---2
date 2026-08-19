@@ -259,7 +259,8 @@ fun SettingsScreen(
 
             BannerAd(
                 adUnitId = BuildConfig.ADMOB_BANNER_SETTINGS,
-                modifier = Modifier.padding(top = 16.dp)
+                modifier = Modifier.padding(top = 16.dp),
+                collapsible = "bottom"
             )
             
             Box(

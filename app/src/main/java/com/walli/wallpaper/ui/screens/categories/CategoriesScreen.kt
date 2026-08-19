@@ -147,7 +147,8 @@ fun CategoriesRoute(
                         if (state.categories.isNotEmpty()) {
                             BannerAd(
                                 adUnitId = BuildConfig.ADMOB_BANNER_CATEGORIES,
-                                modifier = Modifier.padding(top = 16.dp)
+                                modifier = Modifier.padding(top = 16.dp),
+                                collapsible = "bottom"
                             )
                         }
                     }
