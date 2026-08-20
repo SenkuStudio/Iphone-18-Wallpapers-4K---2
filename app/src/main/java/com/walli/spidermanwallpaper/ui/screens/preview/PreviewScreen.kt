@@ -213,9 +213,7 @@ fun PreviewRoute(
 
     LaunchedEffect(state.wallpaperApplied) {
         if (state.wallpaperApplied) {
-            adsViewModel.maybeShowSetWallpaperInterstitial(activity) {
-                viewModel.consumeWallpaperApplied()
-            }
+            viewModel.consumeWallpaperApplied()
         }
     }
 
@@ -344,7 +342,7 @@ fun PreviewRoute(
                             onClick = {
                                 showSetSheet = false
                                 val actualPage = pagerState.currentPage % state.items.size
-                                viewModel.applyWallpaper(actualPage, target)
+                                viewModel.requestSetWallpaper(actualPage, target)
                             },
                             modifier = Modifier.weight(1f),
                             shape = RoundedCornerShape(20.dp),
@@ -874,35 +872,7 @@ fun PreviewRoute(
                                 ) {
                                     FilledTonalButton(
                                         onClick = {
-                                            val action = { viewModel.download(actualPage) }
-                                            if (item.isPremium && !item.isUnlocked) {
-                                                viewModel.requestUnlock(actualPage)
-                                            } else {
-                                                isAdLoading = true
-                                                adsViewModel.showDownloadRewarded(
-                                                    activity = activity,
-                                                    onReward = {
-                                                        isAdLoading = false
-                                                        action()
-                                                    },
-                                                    onDismiss = {
-                                                        isAdLoading = false
-                                                    },
-                                                    onError = { message ->
-                                                        isAdLoading = false
-                                                        scope.launch {
-                                                            val result = snackbarHostState.showSnackbar(
-                                                                message = message,
-                                                                actionLabel = "Retry",
-                                                                duration = SnackbarDuration.Long
-                                                            )
-                                                            if (result == SnackbarResult.ActionPerformed) {
-                                                                action()
-                                                            }
-                                                        }
-                                                    }
-                                                )
-                                            }
+                                            viewModel.requestDownload(actualPage)
                                         },
                                         modifier = Modifier.size(44.dp),
                                         contentPadding = PaddingValues(0.dp),
@@ -1280,16 +1250,54 @@ fun PreviewRoute(
     }
 
     state.wallpaperToUnlock?.let { wallpaper ->
+        val title = when (state.pendingAction) {
+            PendingAction.DOWNLOAD -> "Download Wallpaper"
+            PendingAction.SET_WALLPAPER -> "Set Wallpaper"
+            else -> "Unlock Premium Content"
+        }
+        val description = when (state.pendingAction) {
+            PendingAction.DOWNLOAD -> "Watch a short video to download this wallpaper to your gallery."
+            PendingAction.SET_WALLPAPER -> "Watch a short video to apply this wallpaper to your device."
+            else -> "Watch a short video to unlock this premium wallpaper."
+        }
+        val buttonText = when (state.pendingAction) {
+            PendingAction.DOWNLOAD -> "Watch Ad & Download"
+            PendingAction.SET_WALLPAPER -> "Watch Ad & Set"
+            else -> "Watch Ad & Unlock"
+        }
+
         UnlockPremiumDialog(
             wallpaper = wallpaper,
+            title = title,
+            description = description,
+            buttonText = buttonText,
             isLoading = isAdLoading,
             onDismiss = {
                 isAdLoading = false
                 viewModel.dismissUnlockDialog()
             },
             onUnlock = {
+                val action: (onReward: () -> Unit) -> Unit = { onReward ->
+                    when (state.pendingAction) {
+                        PendingAction.DOWNLOAD -> adsViewModel.showDownloadRewarded(activity, onReward, { isAdLoading = false }, { isAdLoading = false })
+                        PendingAction.SET_WALLPAPER -> adsViewModel.showSetWallpaperRewarded(activity, onReward, { isAdLoading = false }, { isAdLoading = false })
+                        else -> adsViewModel.showPreviewRewarded(activity, onReward, { isAdLoading = false }, { isAdLoading = false })
+                    }
+                }
+
+                val onReward: () -> Unit = {
+                    isAdLoading = false
+                    val actualPageInner = pagerState.currentPage % state.items.size
+                    when (state.pendingAction) {
+                        PendingAction.DOWNLOAD -> viewModel.download(actualPageInner)
+                        PendingAction.SET_WALLPAPER -> state.pendingWallpaperTarget?.let { viewModel.applyWallpaper(actualPageInner, it) }
+                        else -> viewModel.unlockWallpaper(wallpaper)
+                    }
+                }
+
                 if (isRewardedReady) {
-                    showAdAndUnlock(wallpaper)
+                    isAdLoading = true
+                    action(onReward)
                 } else {
                     isAdLoading = true
                 }

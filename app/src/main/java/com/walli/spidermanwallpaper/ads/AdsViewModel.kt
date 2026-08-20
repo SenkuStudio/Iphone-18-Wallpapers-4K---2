@@ -89,6 +89,15 @@ class AdsViewModel @Inject constructor(
         adMobManager.showProToolsRewarded(activity, onReward, onDismiss, onError)
     }
 
+    fun showSetWallpaperRewarded(
+        activity: Activity?,
+        onReward: () -> Unit,
+        onDismiss: () -> Unit = {},
+        onError: (String) -> Unit = {}
+    ) {
+        adMobManager.showSetWallpaperRewarded(activity, onReward, onDismiss, onError)
+    }
+
     fun getNativeAd(adUnitId: String, key: String? = null) = adMobManager.getNativeAd(adUnitId, key)
 
     fun preloadNativeAd(adUnitId: String) {

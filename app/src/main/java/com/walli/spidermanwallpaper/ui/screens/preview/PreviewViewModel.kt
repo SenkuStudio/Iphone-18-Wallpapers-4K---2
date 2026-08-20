@@ -47,11 +47,17 @@ data class PreviewUiState(
     val isOnline: Boolean = true,
     val transformations: Map<Int, ImageTransformation> = emptyMap(),
     val wallpaperToUnlock: Wallpaper? = null,
+    val pendingAction: PendingAction? = null,
+    val pendingWallpaperTarget: WallpaperTarget? = null,
     val wallpaperApplied: Boolean = false,
     val isEditMode: Boolean = false,
     val areEditToolsUnlocked: Boolean = false,
     val isPremiumPassActive: Boolean = false,
 )
+
+enum class PendingAction {
+    UNLOCK, DOWNLOAD, SET_WALLPAPER
+}
 
 @HiltViewModel
 class PreviewViewModel @Inject constructor(
@@ -106,9 +112,9 @@ class PreviewViewModel @Inject constructor(
                             targetInitialIndex = itemsWithAds.size - 1
                         }
 
-                        // Insert ad every 4 wallpapers to match grid
-                        if ((index + 1) % 4 == 0) {
-                            val adKey = "ad_preview_${index / 4}"
+                        // Insert ad every 8 wallpapers to match grid
+                        if ((index + 1) % 8 == 0) {
+                            val adKey = "ad_preview_${index / 8}"
                             if (adKey !in removedAdKeys) {
                                 itemsWithAds.add(adKey)
                             }
@@ -198,12 +204,26 @@ class PreviewViewModel @Inject constructor(
     fun requestUnlock(index: Int) {
         val item = _uiState.value.items.getOrNull(index)
         if (item is Wallpaper && item.isPremium && !item.isUnlocked) {
-            _uiState.update { it.copy(wallpaperToUnlock = item) }
+            _uiState.update { it.copy(wallpaperToUnlock = item, pendingAction = PendingAction.UNLOCK) }
+        }
+    }
+
+    fun requestDownload(index: Int) {
+        val item = _uiState.value.items.getOrNull(index)
+        if (item is Wallpaper) {
+            _uiState.update { it.copy(wallpaperToUnlock = item, pendingAction = PendingAction.DOWNLOAD) }
+        }
+    }
+
+    fun requestSetWallpaper(index: Int, target: WallpaperTarget) {
+        val item = _uiState.value.items.getOrNull(index)
+        if (item is Wallpaper) {
+            _uiState.update { it.copy(wallpaperToUnlock = item, pendingAction = PendingAction.SET_WALLPAPER, pendingWallpaperTarget = target) }
         }
     }
 
     fun dismissUnlockDialog() {
-        _uiState.update { it.copy(wallpaperToUnlock = null) }
+        _uiState.update { it.copy(wallpaperToUnlock = null, pendingAction = null, pendingWallpaperTarget = null) }
     }
 
     fun unlockWallpaper(wallpaper: Wallpaper) {

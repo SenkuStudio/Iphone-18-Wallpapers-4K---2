@@ -440,8 +440,8 @@ private fun HomeScreen(
                                             )
                                         }
 
-                                        // Insert Native Ad every 4 items
-                                        if (index > 0 && (index + 1) % 5 == 0) {
+                                        // Insert Native Ad every 8 items
+                                        if (index > 0 && (index + 1) % 8 == 0) {
                                             item(
                                                 key = "native-ad-${index}",
                                                 contentType = "native_ad"

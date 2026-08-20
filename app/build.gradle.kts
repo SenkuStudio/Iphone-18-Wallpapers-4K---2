@@ -50,6 +50,7 @@ android {
         buildConfigField("String", "ADMOB_REWARDED_PREVIEW", "\"${localProperties.getProperty("ADMOB_REWARDED_PREVIEW") ?: ""}\"")
         buildConfigField("String", "ADMOB_REWARDED_DOWNLOAD", "\"${localProperties.getProperty("ADMOB_REWARDED_DOWNLOAD") ?: ""}\"")
         buildConfigField("String", "ADMOB_REWARDED_PRO_TOOLS", "\"${localProperties.getProperty("ADMOB_REWARDED_PRO_TOOLS") ?: ""}\"")
+        buildConfigField("String", "ADMOB_REWARDED_SET_WALLPAPER", "\"${localProperties.getProperty("ADMOB_REWARDED_SET_WALLPAPER") ?: ""}\"")
 
         // Native IDs
         buildConfigField("String", "ADMOB_NATIVE_HOME", "\"${localProperties.getProperty("ADMOB_NATIVE_HOME") ?: ""}\"")

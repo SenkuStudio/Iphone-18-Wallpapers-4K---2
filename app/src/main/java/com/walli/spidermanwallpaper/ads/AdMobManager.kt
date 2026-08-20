@@ -49,6 +49,7 @@ class AdMobManager @Inject constructor(
     private var previewRewardedAd: RewardedAd? = null
     private var downloadRewardedAd: RewardedAd? = null
     private var proToolsRewardedAd: RewardedAd? = null
+    private var setWallpaperRewardedAd: RewardedAd? = null
 
     // Native Ad Pools
     private var previewNativeAd: NativeAd? = null
@@ -68,9 +69,9 @@ class AdMobManager @Inject constructor(
     private var lastAdShowTime: Long = 0
     private var homeMeaningfulOpenCounter = 0
     private var categoryMeaningfulOpenCounter = 0
-    private var nextHomeThreshold = (4..6).random()
-    private var nextCategoryThreshold = (3..5).random()
-    private val adCooldownMillis = (60..120).random() * 1000L
+    private var nextHomeThreshold = (6..9).random()
+    private var nextCategoryThreshold = (5..8).random()
+    private val adCooldownMillis = (90..150).random() * 1000L
 
     private var isAppInForeground = false
     private var isShowingAd = false
@@ -110,6 +111,7 @@ class AdMobManager @Inject constructor(
         loadRewarded(BuildConfig.ADMOB_REWARDED_PREVIEW) { previewRewardedAd = it }
         loadRewarded(BuildConfig.ADMOB_REWARDED_DOWNLOAD) { downloadRewardedAd = it }
         loadRewarded(BuildConfig.ADMOB_REWARDED_PRO_TOOLS) { proToolsRewardedAd = it }
+        loadRewarded(BuildConfig.ADMOB_REWARDED_SET_WALLPAPER) { setWallpaperRewardedAd = it }
         
         // Initial pool fill for all native IDs
         loadNativeAd(BuildConfig.ADMOB_NATIVE_HOME)
@@ -140,7 +142,7 @@ class AdMobManager @Inject constructor(
                 categoryInterstitialAd = null
                 lastAdShowTime = System.currentTimeMillis()
                 categoryMeaningfulOpenCounter = 0
-                nextCategoryThreshold = (3..5).random()
+                nextCategoryThreshold = (5..8).random()
             },
             BuildConfig.ADMOB_INTERSTITIAL_CATEGORY,
             onContinue
@@ -174,7 +176,7 @@ class AdMobManager @Inject constructor(
                 homeInterstitialAd = null
                 lastAdShowTime = System.currentTimeMillis()
                 homeMeaningfulOpenCounter = 0
-                nextHomeThreshold = (4..6).random()
+                nextHomeThreshold = (6..9).random()
             },
             BuildConfig.ADMOB_INTERSTITIAL_HOME,
             onContinue
@@ -256,6 +258,10 @@ class AdMobManager @Inject constructor(
         showRewarded(activity, proToolsRewardedAd, { proToolsRewardedAd = null }, BuildConfig.ADMOB_REWARDED_PRO_TOOLS, onReward, onDismiss, onError)
     }
 
+    fun showSetWallpaperRewarded(activity: Activity?, onReward: () -> Unit, onDismiss: () -> Unit = {}, onError: (String) -> Unit = {}) {
+        showRewarded(activity, setWallpaperRewardedAd, { setWallpaperRewardedAd = null }, BuildConfig.ADMOB_REWARDED_SET_WALLPAPER, onReward, onDismiss, onError)
+    }
+
     private fun showRewarded(
         activity: Activity?,
         ad: RewardedAd?,
@@ -279,6 +285,7 @@ class AdMobManager @Inject constructor(
                     BuildConfig.ADMOB_REWARDED_PREVIEW -> previewRewardedAd = it
                     BuildConfig.ADMOB_REWARDED_DOWNLOAD -> downloadRewardedAd = it
                     BuildConfig.ADMOB_REWARDED_PRO_TOOLS -> proToolsRewardedAd = it
+                    BuildConfig.ADMOB_REWARDED_SET_WALLPAPER -> setWallpaperRewardedAd = it
                 }
             }
             return
@@ -295,6 +302,7 @@ class AdMobManager @Inject constructor(
                         BuildConfig.ADMOB_REWARDED_PREVIEW -> previewRewardedAd = it
                         BuildConfig.ADMOB_REWARDED_DOWNLOAD -> downloadRewardedAd = it
                         BuildConfig.ADMOB_REWARDED_PRO_TOOLS -> proToolsRewardedAd = it
+                        BuildConfig.ADMOB_REWARDED_SET_WALLPAPER -> setWallpaperRewardedAd = it
                     }
                 }
                 onDismiss()
@@ -311,6 +319,7 @@ class AdMobManager @Inject constructor(
                         BuildConfig.ADMOB_REWARDED_PREVIEW -> previewRewardedAd = it
                         BuildConfig.ADMOB_REWARDED_DOWNLOAD -> downloadRewardedAd = it
                         BuildConfig.ADMOB_REWARDED_PRO_TOOLS -> proToolsRewardedAd = it
+                        BuildConfig.ADMOB_REWARDED_SET_WALLPAPER -> setWallpaperRewardedAd = it
                     }
                 }
                 onError("Failed to show ad. Please check your internet connection.")

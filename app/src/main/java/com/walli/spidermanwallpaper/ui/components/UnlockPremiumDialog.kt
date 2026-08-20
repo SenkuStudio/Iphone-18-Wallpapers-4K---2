@@ -21,13 +21,16 @@ import com.walli.spidermanwallpaper.domain.model.Wallpaper
 @Composable
 fun UnlockPremiumDialog(
     wallpaper: Wallpaper,
+    title: String = "Unlock Premium Content",
+    description: String = "Watch a short video to unlock this premium wallpaper.",
+    buttonText: String = "Watch Ad & Unlock",
     isLoading: Boolean = false,
     onDismiss: () -> Unit,
     onUnlock: () -> Unit,
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Unlock Premium Content") },
+        title = { Text(title) },
         text = {
             if (isLoading) {
                 Box(
@@ -43,7 +46,7 @@ fun UnlockPremiumDialog(
                 }
             } else {
                 androidx.compose.foundation.layout.Column {
-                    Text("Watch a short video to unlock this premium wallpaper.")
+                    Text(description)
                 }
             }
         },
@@ -65,7 +68,7 @@ fun UnlockPremiumDialog(
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                     }
-                    Text(if (isLoading) "Loading Ad..." else "Watch Ad & Unlock This")
+                    Text(if (isLoading) "Loading Ad..." else buttonText)
                 }
             }
         },
