@@ -20,7 +20,7 @@ Production-grade starter for a Kotlin + Compose wallpaper app with a Cloudflare-
 ```
 Walli/
 ├── app/
-│   ├── src/main/java/com/walli/wallpaper/
+│   ├── src/main/java/com/walli/spidermanwallpaper/
 │   │   ├── ads/
 │   │   ├── data/
 │   │   │   ├── api/

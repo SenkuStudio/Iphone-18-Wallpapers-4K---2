@@ -7,8 +7,8 @@
 - Store schedule preferences in `DataStore`.
 - Reuse `WallpaperApplier` inside the worker.
 - Recommended file locations:
-  - `app/src/main/java/com/walli/wallpaper/worker/AutoWallpaperWorker.kt`
-  - `app/src/main/java/com/walli/wallpaper/data/datastore/SettingsDataStore.kt`
+  - `app/src/main/java/com/walli/spidermanwallpaper/worker/AutoWallpaperWorker.kt`
+  - `app/src/main/java/com/walli/spidermanwallpaper/data/datastore/SettingsDataStore.kt`
 
 ### 2) Blur + set wallpaper
 - Add a bitmap transform pipeline before `WallpaperManager.setBitmap`.
