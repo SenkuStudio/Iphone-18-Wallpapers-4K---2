@@ -270,6 +270,7 @@ class PreviewViewModel @Inject constructor(
     fun download(index: Int) {
         val item = _uiState.value.items.getOrNull(index)
         if (item is Wallpaper) {
+            dismissUnlockDialog()
             val transformation = _uiState.value.transformations[index] ?: ImageTransformation()
             viewModelScope.launch {
                 setWorking(label = "Downloading…")
@@ -383,6 +384,7 @@ class PreviewViewModel @Inject constructor(
     fun applyWallpaper(index: Int, target: WallpaperTarget) {
         val item = _uiState.value.items.getOrNull(index)
         if (item is Wallpaper) {
+            dismissUnlockDialog()
             val transformation = _uiState.value.transformations[index] ?: ImageTransformation()
             viewModelScope.launch {
                 setWorking(label = "Applying wallpaper…")

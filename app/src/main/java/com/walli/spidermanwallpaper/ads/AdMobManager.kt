@@ -44,12 +44,9 @@ class AdMobManager @Inject constructor(
     private var categoryInterstitialAd: InterstitialAd? = null
     private var setWallpaperInterstitialAd: InterstitialAd? = null
 
-    private var homeRewardedAd: RewardedAd? = null
-    private var categoryRewardedAd: RewardedAd? = null
-    private var previewRewardedAd: RewardedAd? = null
-    private var downloadRewardedAd: RewardedAd? = null
-    private var proToolsRewardedAd: RewardedAd? = null
-    private var setWallpaperRewardedAd: RewardedAd? = null
+    // Rewarded Ad Pools
+    private val rewardedAdsPools = mutableMapOf<String, MutableList<RewardedAd>>()
+    private val maxRewardedPoolSize = 2
 
     // Native Ad Pools
     private var previewNativeAd: NativeAd? = null
@@ -106,12 +103,13 @@ class AdMobManager @Inject constructor(
         loadInterstitial(BuildConfig.ADMOB_INTERSTITIAL_CATEGORY) { categoryInterstitialAd = it }
         loadInterstitial(BuildConfig.ADMOB_INTERSTITIAL_SET_WALLPAPER) { setWallpaperInterstitialAd = it }
 
-        loadRewarded(BuildConfig.ADMOB_REWARDED_HOME) { homeRewardedAd = it }
-        loadRewarded(BuildConfig.ADMOB_REWARDED_CATEGORY) { categoryRewardedAd = it }
-        loadRewarded(BuildConfig.ADMOB_REWARDED_PREVIEW) { previewRewardedAd = it }
-        loadRewarded(BuildConfig.ADMOB_REWARDED_DOWNLOAD) { downloadRewardedAd = it }
-        loadRewarded(BuildConfig.ADMOB_REWARDED_PRO_TOOLS) { proToolsRewardedAd = it }
-        loadRewarded(BuildConfig.ADMOB_REWARDED_SET_WALLPAPER) { setWallpaperRewardedAd = it }
+        // Fill Rewarded Pools
+        loadRewarded(BuildConfig.ADMOB_REWARDED_HOME)
+        loadRewarded(BuildConfig.ADMOB_REWARDED_CATEGORY)
+        loadRewarded(BuildConfig.ADMOB_REWARDED_PREVIEW)
+        loadRewarded(BuildConfig.ADMOB_REWARDED_DOWNLOAD)
+        loadRewarded(BuildConfig.ADMOB_REWARDED_PRO_TOOLS)
+        loadRewarded(BuildConfig.ADMOB_REWARDED_SET_WALLPAPER)
         
         // Initial pool fill for all native IDs
         loadNativeAd(BuildConfig.ADMOB_NATIVE_HOME)
@@ -239,89 +237,67 @@ class AdMobManager @Inject constructor(
     }
 
     fun showHomeRewarded(activity: Activity?, onReward: () -> Unit, onDismiss: () -> Unit = {}, onError: (String) -> Unit = {}) {
-        showRewarded(activity, homeRewardedAd, { homeRewardedAd = null }, BuildConfig.ADMOB_REWARDED_HOME, onReward, onDismiss, onError)
+        showRewarded(activity, BuildConfig.ADMOB_REWARDED_HOME, onReward, onDismiss, onError)
     }
 
     fun showCategoryRewarded(activity: Activity?, onReward: () -> Unit, onDismiss: () -> Unit = {}, onError: (String) -> Unit = {}) {
-        showRewarded(activity, categoryRewardedAd, { categoryRewardedAd = null }, BuildConfig.ADMOB_REWARDED_CATEGORY, onReward, onDismiss, onError)
+        showRewarded(activity, BuildConfig.ADMOB_REWARDED_CATEGORY, onReward, onDismiss, onError)
     }
 
     fun showPreviewRewarded(activity: Activity?, onReward: () -> Unit, onDismiss: () -> Unit = {}, onError: (String) -> Unit = {}) {
-        showRewarded(activity, previewRewardedAd, { previewRewardedAd = null }, BuildConfig.ADMOB_REWARDED_PREVIEW, onReward, onDismiss, onError)
+        showRewarded(activity, BuildConfig.ADMOB_REWARDED_PREVIEW, onReward, onDismiss, onError)
     }
 
     fun showDownloadRewarded(activity: Activity?, onReward: () -> Unit, onDismiss: () -> Unit = {}, onError: (String) -> Unit = {}) {
-        showRewarded(activity, downloadRewardedAd, { downloadRewardedAd = null }, BuildConfig.ADMOB_REWARDED_DOWNLOAD, onReward, onDismiss, onError)
+        showRewarded(activity, BuildConfig.ADMOB_REWARDED_DOWNLOAD, onReward, onDismiss, onError)
     }
 
     fun showProToolsRewarded(activity: Activity?, onReward: () -> Unit, onDismiss: () -> Unit = {}, onError: (String) -> Unit = {}) {
-        showRewarded(activity, proToolsRewardedAd, { proToolsRewardedAd = null }, BuildConfig.ADMOB_REWARDED_PRO_TOOLS, onReward, onDismiss, onError)
+        showRewarded(activity, BuildConfig.ADMOB_REWARDED_PRO_TOOLS, onReward, onDismiss, onError)
     }
 
     fun showSetWallpaperRewarded(activity: Activity?, onReward: () -> Unit, onDismiss: () -> Unit = {}, onError: (String) -> Unit = {}) {
-        showRewarded(activity, setWallpaperRewardedAd, { setWallpaperRewardedAd = null }, BuildConfig.ADMOB_REWARDED_SET_WALLPAPER, onReward, onDismiss, onError)
+        showRewarded(activity, BuildConfig.ADMOB_REWARDED_SET_WALLPAPER, onReward, onDismiss, onError)
     }
 
     private fun showRewarded(
         activity: Activity?,
-        ad: RewardedAd?,
-        clearAd: () -> Unit,
         adUnitId: String,
         onReward: () -> Unit,
         onDismiss: () -> Unit,
         onError: (String) -> Unit
     ) {
-        if (activity == null) {
+        if (activity == null || adUnitId.isBlank()) {
             onDismiss()
             return
         }
 
+        val ad = synchronized(rewardedAdsPools) {
+            val pool = rewardedAdsPools[adUnitId]
+            if (pool != null && pool.isNotEmpty()) {
+                pool.removeAt(0)
+            } else {
+                null
+            }
+        }
+
         if (ad == null) {
             onError("Spiderman Wallpaper The reward isn't ready yet. Check your connection or try again in a moment.")
-            if (isAppInForeground) loadRewarded(adUnitId) {
-                when (adUnitId) {
-                    BuildConfig.ADMOB_REWARDED_HOME -> homeRewardedAd = it
-                    BuildConfig.ADMOB_REWARDED_CATEGORY -> categoryRewardedAd = it
-                    BuildConfig.ADMOB_REWARDED_PREVIEW -> previewRewardedAd = it
-                    BuildConfig.ADMOB_REWARDED_DOWNLOAD -> downloadRewardedAd = it
-                    BuildConfig.ADMOB_REWARDED_PRO_TOOLS -> proToolsRewardedAd = it
-                    BuildConfig.ADMOB_REWARDED_SET_WALLPAPER -> setWallpaperRewardedAd = it
-                }
-            }
+            if (isAppInForeground) loadRewarded(adUnitId)
             return
         }
 
         ad.fullScreenContentCallback = object : FullScreenContentCallback() {
             override fun onAdDismissedFullScreenContent() {
-                clearAd()
-                _isRewardedLoaded.value = false
-                if (isAppInForeground) loadRewarded(adUnitId) {
-                    when (adUnitId) {
-                        BuildConfig.ADMOB_REWARDED_HOME -> homeRewardedAd = it
-                        BuildConfig.ADMOB_REWARDED_CATEGORY -> categoryRewardedAd = it
-                        BuildConfig.ADMOB_REWARDED_PREVIEW -> previewRewardedAd = it
-                        BuildConfig.ADMOB_REWARDED_DOWNLOAD -> downloadRewardedAd = it
-                        BuildConfig.ADMOB_REWARDED_PRO_TOOLS -> proToolsRewardedAd = it
-                        BuildConfig.ADMOB_REWARDED_SET_WALLPAPER -> setWallpaperRewardedAd = it
-                    }
-                }
+                updateRewardedState()
+                if (isAppInForeground) loadRewarded(adUnitId)
                 onDismiss()
             }
 
             override fun onAdFailedToShowFullScreenContent(adError: AdError) {
-                clearAd()
-                _isRewardedLoaded.value = false
+                updateRewardedState()
                 analyticsManager.logAdFailed(adUnitId, "rewarded_show", adError.message)
-                if (isAppInForeground) loadRewarded(adUnitId) {
-                    when (adUnitId) {
-                        BuildConfig.ADMOB_REWARDED_HOME -> homeRewardedAd = it
-                        BuildConfig.ADMOB_REWARDED_CATEGORY -> categoryRewardedAd = it
-                        BuildConfig.ADMOB_REWARDED_PREVIEW -> previewRewardedAd = it
-                        BuildConfig.ADMOB_REWARDED_DOWNLOAD -> downloadRewardedAd = it
-                        BuildConfig.ADMOB_REWARDED_PRO_TOOLS -> proToolsRewardedAd = it
-                        BuildConfig.ADMOB_REWARDED_SET_WALLPAPER -> setWallpaperRewardedAd = it
-                    }
-                }
+                if (isAppInForeground) loadRewarded(adUnitId)
                 onError("Failed to show ad. Please check your internet connection.")
                 onDismiss()
             }
@@ -334,6 +310,13 @@ class AdMobManager @Inject constructor(
         ad.show(activity, OnUserEarnedRewardListener {
             onReward()
         })
+    }
+
+    private fun updateRewardedState() {
+        val anyAvailable = synchronized(rewardedAdsPools) {
+            rewardedAdsPools.values.any { it.isNotEmpty() }
+        }
+        _isRewardedLoaded.value = anyAvailable
     }
 
     private fun loadInterstitial(adUnitId: String, onLoaded: (InterstitialAd) -> Unit) {
@@ -354,17 +337,36 @@ class AdMobManager @Inject constructor(
         )
     }
 
-    private fun loadRewarded(adUnitId: String, onLoaded: (RewardedAd) -> Unit) {
+    private fun loadRewarded(adUnitId: String) {
         if (adUnitId.isBlank()) return
+        
+        synchronized(rewardedAdsPools) {
+            val pool = rewardedAdsPools.getOrPut(adUnitId) { mutableListOf() }
+            if (pool.size >= maxRewardedPoolSize) return
+        }
+
         RewardedAd.load(
             context,
             adUnitId,
             AdRequest.Builder().build(),
             object : RewardedAdLoadCallback() {
                 override fun onAdLoaded(ad: RewardedAd) {
+                    synchronized(rewardedAdsPools) {
+                        val pool = rewardedAdsPools.getOrPut(adUnitId) { mutableListOf() }
+                        if (pool.size < maxRewardedPoolSize) {
+                            pool.add(ad)
+                        }
+                    }
                     analyticsManager.logAdLoad(adUnitId, "rewarded")
-                    onLoaded(ad)
-                    _isRewardedLoaded.value = true
+                    updateRewardedState()
+                    
+                    // If we still have room in the pool, load another one
+                    if (isAppInForeground) {
+                        val currentSize = synchronized(rewardedAdsPools) { rewardedAdsPools[adUnitId]?.size ?: 0 }
+                        if (currentSize < maxRewardedPoolSize) {
+                            loadRewarded(adUnitId)
+                        }
+                    }
                 }
                 override fun onAdFailedToLoad(loadAdError: LoadAdError) {
                     analyticsManager.logAdFailed(adUnitId, "rewarded", loadAdError.message)
