@@ -146,29 +146,44 @@ fun PreviewRoute(
     val isRewardedReady by adsViewModel.isRewardedReady.collectAsStateWithLifecycle()
     var isAdLoading by remember { mutableStateOf(false) }
 
+    val pagerState = rememberPagerState(
+        initialPage = if (state.items.isEmpty()) 0 else state.initialIndex.coerceIn(0, state.items.lastIndex),
+        pageCount = { state.items.size },
+    )
+
     fun showAdAndUnlock(wallpaper: Wallpaper) {
-        adsViewModel.showPreviewRewarded(
-            activity = activity,
-            onReward = {
-                viewModel.unlockWallpaper(wallpaper)
-            },
-            onDismiss = {
-                isAdLoading = false
-            },
-            onError = { message ->
-                isAdLoading = false
-                scope.launch {
-                    val result = snackbarHostState.showSnackbar(
-                        message = message,
-                        actionLabel = "Retry",
-                        duration = SnackbarDuration.Long
-                    )
-                    if (result == SnackbarResult.ActionPerformed) {
-                        showAdAndUnlock(wallpaper)
-                    }
+        val onReward: () -> Unit = {
+            isAdLoading = false
+            val actualPageInner = pagerState.currentPage % state.items.size
+            when (state.pendingAction) {
+                PendingAction.DOWNLOAD -> viewModel.download(actualPageInner)
+                PendingAction.SET_WALLPAPER -> state.pendingWallpaperTarget?.let { 
+                    viewModel.applyWallpaper(actualPageInner, it) 
+                }
+                else -> viewModel.unlockWallpaper(wallpaper)
+            }
+        }
+
+        val onDismiss = { isAdLoading = false }
+        val onError: (String) -> Unit = { message ->
+            isAdLoading = false
+            scope.launch {
+                val result = snackbarHostState.showSnackbar(
+                    message = message,
+                    actionLabel = "Retry",
+                    duration = SnackbarDuration.Long
+                )
+                if (result == SnackbarResult.ActionPerformed) {
+                    showAdAndUnlock(wallpaper)
                 }
             }
-        )
+        }
+
+        when (state.pendingAction) {
+            PendingAction.DOWNLOAD -> adsViewModel.showDownloadRewarded(activity, onReward, onDismiss, onError)
+            PendingAction.SET_WALLPAPER -> adsViewModel.showSetWallpaperRewarded(activity, onReward, onDismiss, onError)
+            else -> adsViewModel.showPreviewRewarded(activity, onReward, onDismiss, onError)
+        }
     }
 
     fun showProToolsAd() {
@@ -233,13 +248,6 @@ fun PreviewRoute(
         )
         return
     }
-
-    val pagerState = rememberPagerState(
-        initialPage = if (state.items.isEmpty()) 0 else state.initialIndex.coerceIn(0, state.items.lastIndex),
-        pageCount = {
-            state.items.size
-        },
-    )
 
     LaunchedEffect(pagerState, state.items) {
         snapshotFlow { pagerState.settledPage }.collectLatest { actualPage ->
@@ -1277,30 +1285,7 @@ fun PreviewRoute(
                 viewModel.dismissUnlockDialog()
             },
             onUnlock = {
-                val action: (onReward: () -> Unit) -> Unit = { onReward ->
-                    when (state.pendingAction) {
-                        PendingAction.DOWNLOAD -> adsViewModel.showDownloadRewarded(activity, onReward, { isAdLoading = false }, { isAdLoading = false })
-                        PendingAction.SET_WALLPAPER -> adsViewModel.showSetWallpaperRewarded(activity, onReward, { isAdLoading = false }, { isAdLoading = false })
-                        else -> adsViewModel.showPreviewRewarded(activity, onReward, { isAdLoading = false }, { isAdLoading = false })
-                    }
-                }
-
-                val onReward: () -> Unit = {
-                    isAdLoading = false
-                    val actualPageInner = pagerState.currentPage % state.items.size
-                    when (state.pendingAction) {
-                        PendingAction.DOWNLOAD -> viewModel.download(actualPageInner)
-                        PendingAction.SET_WALLPAPER -> state.pendingWallpaperTarget?.let { viewModel.applyWallpaper(actualPageInner, it) }
-                        else -> viewModel.unlockWallpaper(wallpaper)
-                    }
-                }
-
-                if (isRewardedReady) {
-                    isAdLoading = true
-                    action(onReward)
-                } else {
-                    isAdLoading = true
-                }
+                isAdLoading = true
             }
         )
     }
