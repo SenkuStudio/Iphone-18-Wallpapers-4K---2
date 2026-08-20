@@ -127,8 +127,8 @@ fun CategoriesRoute(
                             )
                         }
 
-                        // Insert Native Ad every 4 categories
-                        if (index > 0 && (index + 1) % 4 == 0) {
+                        // Insert Native Ad every 8 categories
+                        if (index > 0 && (index + 1) % 8 == 0) {
                             item(
                                 key = "native-ad-cat-${index}",
                                 span = { GridItemSpan(maxLineSpan) },
@@ -137,6 +137,7 @@ fun CategoriesRoute(
                                 com.walli.spidermanwallpaper.ui.components.NativeAdItem(
                                     adUnitId = BuildConfig.ADMOB_NATIVE_CATEGORIES,
                                     key = "cat-grid-ad-$index",
+                                    contentAspectRatio = 1.2f, // Medium size for list layout
                                     modifier = Modifier.padding(vertical = 8.dp)
                                 )
                             }

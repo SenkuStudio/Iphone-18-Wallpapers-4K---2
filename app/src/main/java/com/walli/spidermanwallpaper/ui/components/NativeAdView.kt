@@ -63,6 +63,7 @@ fun NativeAdItem(
     adUnitId: String,
     modifier: Modifier = Modifier,
     key: String? = null,
+    contentAspectRatio: Float = 0.68f,
     adsViewModel: AdsViewModel = hiltViewModel(),
     onAdFailed: (() -> Unit)? = null
 ) {
@@ -127,7 +128,7 @@ fun NativeAdItem(
                 Surface(
                     modifier = modifier
                         .fillMaxWidth()
-                        .aspectRatio(0.68f),
+                        .aspectRatio(contentAspectRatio),
                     color = Color(0xFF121212), // Even darker for better contrast
                     shape = RoundedCornerShape(24.dp),
                     border = androidx.compose.foundation.BorderStroke(
@@ -180,11 +181,14 @@ fun NativeAdItem(
 }
 
 @Composable
-fun NativeAdShimmer(modifier: Modifier = Modifier) {
+fun NativeAdShimmer(
+    modifier: Modifier = Modifier,
+    aspectRatio: Float = 0.68f
+) {
     Surface(
         modifier = modifier
             .fillMaxWidth()
-            .aspectRatio(0.68f),
+            .aspectRatio(aspectRatio),
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
         shape = RoundedCornerShape(24.dp)
     ) {
