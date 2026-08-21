@@ -79,7 +79,7 @@ class AdMobManager @Inject constructor(
 
     override fun onStart(owner: LifecycleOwner) {
         isAppInForeground = true
-        // Add a very small delay to ensure the Activity is fully resumed 
+        // Add a very small delay to ensure the Activity is fully resumed
         // and the UI is ready before showing an App Open ad.
         android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
             if (isAppInForeground) {
@@ -190,7 +190,7 @@ class AdMobManager @Inject constructor(
     ) {
         if (activity == null || ad == null) {
             onContinue()
-            if (isAppInForeground) loadInterstitial(adUnitId) { 
+            if (isAppInForeground) loadInterstitial(adUnitId) {
                 when (adUnitId) {
                     BuildConfig.ADMOB_INTERSTITIAL_HOME -> homeInterstitialAd = it
                     BuildConfig.ADMOB_INTERSTITIAL_CATEGORY -> categoryInterstitialAd = it
@@ -327,6 +327,7 @@ class AdMobManager @Inject constructor(
             AdRequest.Builder().build(),
             object : InterstitialAdLoadCallback() {
                 override fun onAdLoaded(ad: InterstitialAd) {
+                    Log.d(TAG, "Interstitial loaded from: ${ad.responseInfo.mediationAdapterClassName}")
                     analyticsManager.logAdLoad(adUnitId, "interstitial")
                     onLoaded(ad)
                 }
@@ -351,6 +352,7 @@ class AdMobManager @Inject constructor(
             AdRequest.Builder().build(),
             object : RewardedAdLoadCallback() {
                 override fun onAdLoaded(ad: RewardedAd) {
+                    Log.d(TAG, "Rewarded loaded from: ${ad.responseInfo.mediationAdapterClassName}")
                     synchronized(rewardedAdsPools) {
                         val pool = rewardedAdsPools.getOrPut(adUnitId) { mutableListOf() }
                         if (pool.size < maxRewardedPoolSize) {
@@ -396,6 +398,7 @@ class AdMobManager @Inject constructor(
         
         AdLoader.Builder(context, id)
             .forNativeAd { ad ->
+                Log.d(TAG, "Native ad loaded from: ${ad.responseInfo?.mediationAdapterClassName}")
                 synchronized(nativeAdsPools) {
                     pool.add(ad)
                 }
@@ -467,6 +470,7 @@ class AdMobManager @Inject constructor(
             request,
             object : AppOpenAd.AppOpenAdLoadCallback() {
                 override fun onAdLoaded(ad: AppOpenAd) {
+                    Log.d(TAG, "App Open loaded from: ${ad.responseInfo.mediationAdapterClassName}")
                     appOpenAd = ad
                     isLoadingAppOpenAd = false
                     appOpenLoadTime = System.currentTimeMillis()

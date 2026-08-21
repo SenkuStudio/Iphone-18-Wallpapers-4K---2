@@ -147,9 +147,16 @@ fun PreviewRoute(
     var isAdLoading by remember { mutableStateOf(false) }
 
     val pagerState = rememberPagerState(
-        initialPage = if (state.items.isEmpty()) 0 else state.initialIndex.coerceIn(0, state.items.lastIndex),
+        initialPage = 0,
         pageCount = { state.items.size },
     )
+
+    // Fix: Jump to the initial index once items are loaded
+    LaunchedEffect(state.items) {
+        if (state.items.isNotEmpty() && state.initialIndex > 0 && pagerState.currentPage == 0) {
+            pagerState.scrollToPage(state.initialIndex.coerceIn(0, state.items.lastIndex))
+        }
+    }
 
     fun showAdAndUnlock(wallpaper: Wallpaper) {
         val onReward: () -> Unit = {

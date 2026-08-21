@@ -127,8 +127,8 @@ fun CategoriesRoute(
                             )
                         }
 
-                        // Insert Native Ad every 8 categories
-                        if (index > 0 && (index + 1) % 8 == 0) {
+                        // Insert Native Ad every 3 categories
+                        if (index > 0 && (index + 1) % 3 == 0) {
                             item(
                                 key = "native-ad-cat-${index}",
                                 span = { GridItemSpan(maxLineSpan) },

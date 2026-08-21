@@ -19,6 +19,13 @@
   public *;
 }
 
+# Unity Ads
+-keep class com.unity3d.ads.** { *; }
+-keep class com.unity3d.services.** { *; }
+-dontwarn com.unity3d.ads.**
+-dontwarn com.unity3d.services.**
+-dontwarn com.unity3d.services.ads.gmascar.**
+
 # Prevent obfuscation of JavascriptInterface for ads
 -keepattributes JavascriptInterface
 -keepclassmembers class * {

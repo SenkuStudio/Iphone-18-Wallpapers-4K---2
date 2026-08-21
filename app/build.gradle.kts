@@ -15,8 +15,8 @@ android {
         applicationId = "com.walli.spidermanwallpaper"
         minSdk = 24
         targetSdk = 36
-        versionCode = 19
-        versionName = "19.0.0"
+        versionCode = 20
+        versionName = "20.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = true
@@ -57,6 +57,7 @@ android {
         buildConfigField("String", "ADMOB_NATIVE_CATEGORIES", "\"${localProperties.getProperty("ADMOB_NATIVE_CATEGORIES") ?: ""}\"")
         buildConfigField("String", "ADMOB_NATIVE_WALLPAPERS", "\"${localProperties.getProperty("ADMOB_NATIVE_WALLPAPERS") ?: ""}\"")
         buildConfigField("String", "ADMOB_NATIVE_PREVIEW", "\"${localProperties.getProperty("ADMOB_NATIVE_PREVIEW") ?: ""}\"")
+        buildConfigField("String", "UNITY_GAME_ID", "\"${localProperties.getProperty("UNITY_GAME_ID") ?: ""}\"")
     }
 
     buildTypes {
@@ -150,6 +151,8 @@ dependencies {
     implementation(libs.coil.network.okhttp)
 
     implementation(libs.ads)
+    implementation(libs.unity.mediation)
+    implementation(libs.unity.ads)
     implementation(libs.ump)
     implementation(libs.coroutines.android)
     implementation(libs.palette.ktx)

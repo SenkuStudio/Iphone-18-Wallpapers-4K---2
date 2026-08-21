@@ -108,7 +108,7 @@ fun SettingsScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Spacer(modifier = Modifier.height(8.dp))
-            
+
             SettingsSectionTitle("Appearance")
             
             SettingsItem(
