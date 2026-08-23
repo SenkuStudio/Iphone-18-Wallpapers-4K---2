@@ -31,3 +31,7 @@
 -keepclassmembers class * {
     @android.webkit.JavascriptInterface <methods>;
 }
+
+# Meta Audience Network
+-keep class com.facebook.ads.** { *; }
+-dontwarn com.facebook.ads.**
