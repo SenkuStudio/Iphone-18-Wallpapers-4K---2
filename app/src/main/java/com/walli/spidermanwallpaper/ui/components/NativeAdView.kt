@@ -67,7 +67,6 @@ fun NativeAdItem(
     adsViewModel: AdsViewModel = hiltViewModel(),
     onAdFailed: (() -> Unit)? = null
 ) {
-    val context = LocalContext.current
     val TAG = "NativeAdItem"
     
     // We can't easily get AnalyticsManager via hiltViewModel() if it's not a ViewModel.
@@ -87,32 +86,15 @@ fun NativeAdItem(
             nativeAd = pooledAd
             isLoading = false
         } else {
-            val id = if (adUnitId.isBlank()) "ca-app-pub-3940256099942544/2247696110" else adUnitId
-            val adLoader = AdLoader.Builder(context, id)
-                .forNativeAd { ad ->
-                    nativeAd = ad
-                    isLoading = false
-                    isError = false
-                    adsViewModel.logNativeAdLoad(id)
-                }
-                .withAdListener(object : AdListener() {
-                    override fun onAdFailedToLoad(error: LoadAdError) {
-                        isLoading = false
-                        isError = true
-                        onAdFailed?.invoke()
-                        adsViewModel.logNativeAdFailed(id, error.message)
-                    }
-
-                    override fun onAdImpression() {
-                        adsViewModel.logNativeAdImpression(id)
-                    }
-                })
-                .withNativeAdOptions(NativeAdOptions.Builder()
-                    .setAdChoicesPlacement(NativeAdOptions.ADCHOICES_TOP_RIGHT)
-                    .setVideoOptions(VideoOptions.Builder().setStartMuted(true).build())
-                    .build())
-                .build()
-            adLoader.loadAd(AdRequest.Builder().build())
+            // Pool empty, trigger a background load for next time
+            adsViewModel.preloadNativeAd(adUnitId)
+            
+            // Do NOT trigger a direct load here anymore to avoid "Ghost" requests.
+            // If the pool is empty, we just wait for the background refill or show shimmer/nothing.
+            // This prevents duplicate requests when multiple grid items appear at once.
+            
+            // Optional: You can keep the isLoading = false; isError = true if you want to skip showing
+            // a shimmer when pool is dry, but typically we let it shimmer while pool refills.
         }
     }
 

@@ -20,7 +20,8 @@ class AdsViewModel @Inject constructor(
     val isRewardedReady = _isRewardedReady.asStateFlow()
 
     init {
-        adMobManager.warmUp()
+        // Removed adMobManager.warmUp() from here. 
+        // It is called in MainActivity after proper SDK initialization and consent.
         observeAdStatus()
     }
 

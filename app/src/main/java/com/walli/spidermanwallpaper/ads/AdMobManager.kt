@@ -53,7 +53,7 @@ class AdMobManager @Inject constructor(
     private val nativeAdsPools = mutableMapOf<String, MutableList<NativeAd>>()
     private val assignedNativeAds = mutableMapOf<String, NativeAd>()
     private val maxNativeAdsPerId = 5
-    private val maxConcurrentLoads = 4
+    private val maxConcurrentLoads = 8
     private var globalNativeLoadingCount = 0
     private val TAG = "AdMobManager"
     
@@ -72,6 +72,8 @@ class AdMobManager @Inject constructor(
 
     private var isAppInForeground = false
     private var isShowingAd = false
+    private var isInitialized = false
+    private val loadingIds = mutableSetOf<String>()
 
     init {
         ProcessLifecycleOwner.get().lifecycle.addObserver(this)
@@ -79,13 +81,15 @@ class AdMobManager @Inject constructor(
 
     override fun onStart(owner: LifecycleOwner) {
         isAppInForeground = true
-        // Add a very small delay to ensure the Activity is fully resumed
-        // and the UI is ready before showing an App Open ad.
-        android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
-            if (isAppInForeground) {
-                showAppOpenAdIfAvailable()
-            }
-        }, 500)
+        if (isInitialized) {
+            // Add a very small delay to ensure the Activity is fully resumed
+            // and the UI is ready before showing an App Open ad.
+            android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                if (isAppInForeground) {
+                    showAppOpenAdIfAvailable()
+                }
+            }, 500)
+        }
     }
 
     override fun onStop(owner: LifecycleOwner) {
@@ -93,11 +97,13 @@ class AdMobManager @Inject constructor(
     }
 
     fun warmUp() {
+        isInitialized = true
         loadAllAds()
         loadAppOpenAd()
     }
 
     private fun loadAllAds() {
+        if (!isInitialized) return
         Log.d(TAG, "Loading all ads...")
         loadInterstitial(BuildConfig.ADMOB_INTERSTITIAL_HOME) { homeInterstitialAd = it }
         loadInterstitial(BuildConfig.ADMOB_INTERSTITIAL_CATEGORY) { categoryInterstitialAd = it }
@@ -112,7 +118,8 @@ class AdMobManager @Inject constructor(
         loadRewarded(BuildConfig.ADMOB_REWARDED_SET_WALLPAPER)
         
         // Initial pool fill for all native IDs
-        loadNativeAd(BuildConfig.ADMOB_NATIVE_HOME)
+        // Prioritize Home ID aggressively
+        repeat(3) { loadNativeAd(BuildConfig.ADMOB_NATIVE_HOME) }
         loadNativeAd(BuildConfig.ADMOB_NATIVE_CATEGORIES)
         loadNativeAd(BuildConfig.ADMOB_NATIVE_WALLPAPERS)
         loadNativeAd(BuildConfig.ADMOB_NATIVE_PREVIEW)
@@ -320,18 +327,23 @@ class AdMobManager @Inject constructor(
     }
 
     private fun loadInterstitial(adUnitId: String, onLoaded: (InterstitialAd) -> Unit) {
-        if (adUnitId.isBlank()) return
+        if (!isInitialized || adUnitId.isBlank()) return
+        if (loadingIds.contains(adUnitId)) return
+        
+        loadingIds.add(adUnitId)
         InterstitialAd.load(
             context,
             adUnitId,
             AdRequest.Builder().build(),
             object : InterstitialAdLoadCallback() {
                 override fun onAdLoaded(ad: InterstitialAd) {
+                    loadingIds.remove(adUnitId)
                     Log.d(TAG, "Interstitial loaded from: ${ad.responseInfo.mediationAdapterClassName}")
                     analyticsManager.logAdLoad(adUnitId, "interstitial")
                     onLoaded(ad)
                 }
                 override fun onAdFailedToLoad(loadAdError: LoadAdError) {
+                    loadingIds.remove(adUnitId)
                     analyticsManager.logAdFailed(adUnitId, "interstitial", loadAdError.message)
                 }
             },
@@ -339,12 +351,15 @@ class AdMobManager @Inject constructor(
     }
 
     private fun loadRewarded(adUnitId: String) {
-        if (adUnitId.isBlank()) return
+        if (!isInitialized || adUnitId.isBlank()) return
         
         synchronized(rewardedAdsPools) {
             val pool = rewardedAdsPools.getOrPut(adUnitId) { mutableListOf() }
             if (pool.size >= maxRewardedPoolSize) return
         }
+
+        if (loadingIds.contains(adUnitId)) return
+        loadingIds.add(adUnitId)
 
         RewardedAd.load(
             context,
@@ -352,6 +367,7 @@ class AdMobManager @Inject constructor(
             AdRequest.Builder().build(),
             object : RewardedAdLoadCallback() {
                 override fun onAdLoaded(ad: RewardedAd) {
+                    loadingIds.remove(adUnitId)
                     Log.d(TAG, "Rewarded loaded from: ${ad.responseInfo.mediationAdapterClassName}")
                     synchronized(rewardedAdsPools) {
                         val pool = rewardedAdsPools.getOrPut(adUnitId) { mutableListOf() }
@@ -371,6 +387,7 @@ class AdMobManager @Inject constructor(
                     }
                 }
                 override fun onAdFailedToLoad(loadAdError: LoadAdError) {
+                    loadingIds.remove(adUnitId)
                     analyticsManager.logAdFailed(adUnitId, "rewarded", loadAdError.message)
                 }
             }
@@ -378,6 +395,7 @@ class AdMobManager @Inject constructor(
     }
 
     fun loadNativeAd(adUnitId: String) {
+        if (!isInitialized) return
         val id = if (adUnitId.isBlank()) TEST_NATIVE_ID else adUnitId
         
         val pool = synchronized(nativeAdsPools) {
@@ -386,6 +404,9 @@ class AdMobManager @Inject constructor(
 
         if (pool.size >= maxNativeAdsPerId) return
         if (globalNativeLoadingCount >= maxConcurrentLoads) return
+        if (loadingIds.contains(id)) return
+        
+        loadingIds.add(id)
 
         val adOptions = NativeAdOptions.Builder()
             .setAdChoicesPlacement(NativeAdOptions.ADCHOICES_TOP_RIGHT)
@@ -398,6 +419,7 @@ class AdMobManager @Inject constructor(
         
         AdLoader.Builder(context, id)
             .forNativeAd { ad ->
+                loadingIds.remove(id)
                 Log.d(TAG, "Native ad loaded from: ${ad.responseInfo?.mediationAdapterClassName}")
                 synchronized(nativeAdsPools) {
                     pool.add(ad)
@@ -405,12 +427,25 @@ class AdMobManager @Inject constructor(
                 globalNativeLoadingCount--
                 analyticsManager.logAdLoad(id, "native")
                 Log.d(TAG, "Native ad loaded for $adUnitId. Pool size: ${pool.size}")
+                
+                // Proactive refill: if pool is still low, load another
+                if (isAppInForeground && pool.size < 2) { // Reduced from 3 to 2 to be less aggressive
+                    loadNativeAd(adUnitId)
+                }
             }
             .withAdListener(object : com.google.android.gms.ads.AdListener() {
                 override fun onAdFailedToLoad(error: LoadAdError) {
+                    loadingIds.remove(id)
                     globalNativeLoadingCount--
                     analyticsManager.logAdFailed(id, "native", error.message)
                     Log.e(TAG, "Native ad load failed for $adUnitId: ${error.message}")
+                    
+                    // Retry after failure if pool is empty
+                    if (isAppInForeground && pool.isEmpty()) {
+                        android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                            loadNativeAd(adUnitId)
+                        }, 10000) // Increased retry delay to 10s
+                    }
                 }
                 
                 override fun onAdImpression() {
@@ -460,7 +495,7 @@ class AdMobManager @Inject constructor(
 
     /** App Open Ad Logic */
     private fun loadAppOpenAd() {
-        if (isLoadingAppOpenAd || isAppOpenAdAvailable() || BuildConfig.ADMOB_APP_OPEN.isBlank()) return
+        if (!isInitialized || isLoadingAppOpenAd || isAppOpenAdAvailable() || BuildConfig.ADMOB_APP_OPEN.isBlank()) return
 
         isLoadingAppOpenAd = true
         val request = AdRequest.Builder().build()
