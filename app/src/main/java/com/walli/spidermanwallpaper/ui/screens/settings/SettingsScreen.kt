@@ -1,5 +1,6 @@
 package com.walli.spidermanwallpaper.ui.screens.settings
 
+import android.app.Activity
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.Image
@@ -30,6 +31,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.SingletonImageLoader
 import com.walli.spidermanwallpaper.BuildConfig
 import com.walli.spidermanwallpaper.R
+import com.walli.spidermanwallpaper.ads.consent.ConsentManager
 import com.walli.spidermanwallpaper.data.settings.AppTheme
 import com.walli.spidermanwallpaper.data.settings.AutoWallpaperSource
 import com.walli.spidermanwallpaper.ui.components.BannerAd
@@ -76,6 +78,7 @@ fun SettingsScreen(
     var showCategoryDialog by remember { mutableStateOf(false) }
     var showIntervalDialog by remember { mutableStateOf(false) }
     var showClearCacheDialog by remember { mutableStateOf(false) }
+    val consentManager = remember { ConsentManager.getInstance(context) }
 
     Scaffold(
         topBar = {
@@ -176,6 +179,19 @@ fun SettingsScreen(
             )
 
             SettingsSectionTitle("Support & About")
+
+            if (consentManager.isPrivacyOptionsRequired()) {
+                SettingsItem(
+                    icon = Icons.Rounded.PrivacyTip,
+                    title = "Privacy Settings",
+                    subtitle = "Manage your ad consent preferences",
+                    onClick = {
+                        consentManager.showPrivacyOptionsForm(context as Activity) {
+                            // Consent form dismissed
+                        }
+                    }
+                )
+            }
 
             SettingsItem(
                 icon = Icons.Rounded.StarRate,

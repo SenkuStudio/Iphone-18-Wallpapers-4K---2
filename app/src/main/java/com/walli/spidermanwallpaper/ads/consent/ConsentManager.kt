@@ -6,7 +6,6 @@ import com.google.android.ump.ConsentForm
 import com.google.android.ump.ConsentInformation
 import com.google.android.ump.ConsentRequestParameters
 import com.google.android.ump.UserMessagingPlatform
-import java.util.concurrent.atomic.AtomicBoolean
 
 class ConsentManager private constructor(context: Context) {
     private val consentInformation: ConsentInformation =
@@ -44,7 +43,9 @@ class ConsentManager private constructor(context: Context) {
         retryCount: Int,
         onConsentGatheringCompleteListener: OnConsentGatheringCompleteListener
     ) {
-        val params = ConsentRequestParameters.Builder().build()
+        val params = ConsentRequestParameters.Builder()
+            .setTagForUnderAgeOfConsent(false)
+            .build()
 
         // Requesting an update to consent information.
         consentInformation.requestConsentInfoUpdate(
