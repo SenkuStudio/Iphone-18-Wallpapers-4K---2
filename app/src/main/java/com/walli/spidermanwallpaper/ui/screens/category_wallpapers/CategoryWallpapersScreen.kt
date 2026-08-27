@@ -248,8 +248,8 @@ private fun CategoryWallpapersScreen(
                         )
                     }
 
-                    // Insert Native Ad every 3 items
-                    if (index > 0 && (index + 1) % 3 == 0) {
+                    // Insert Native Ad every 6 items
+                    if (index > 0 && (index + 1) % 6 == 0) {
                         item(
                             key = "cat-wallpapers-ad-$index",
                             contentType = "native_ad"

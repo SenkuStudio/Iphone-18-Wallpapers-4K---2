@@ -32,6 +32,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -76,8 +77,11 @@ fun NativeAdItem(
     var nativeAd by remember(key) { mutableStateOf<NativeAd?>(null) }
     var isLoading by remember(key) { mutableStateOf(true) }
     var isError by remember(key) { mutableStateOf(false) }
+    
+    val isInitialized by adsViewModel.isInitialized.collectAsState()
 
-    LaunchedEffect(adUnitId, key) {
+    LaunchedEffect(adUnitId, key, isInitialized) {
+        if (!isInitialized) return@LaunchedEffect
         if (nativeAd != null) return@LaunchedEffect
         
         isError = false
@@ -86,15 +90,38 @@ fun NativeAdItem(
             nativeAd = pooledAd
             isLoading = false
         } else {
-            // Pool empty, trigger a background load for next time
-            adsViewModel.preloadNativeAd(adUnitId)
-            
-            // Do NOT trigger a direct load here anymore to avoid "Ghost" requests.
-            // If the pool is empty, we just wait for the background refill or show shimmer/nothing.
-            // This prevents duplicate requests when multiple grid items appear at once.
-            
-            // Optional: You can keep the isLoading = false; isError = true if you want to skip showing
-            // a shimmer when pool is dry, but typically we let it shimmer while pool refills.
+            // AD REQUEST GOVERNOR:
+            // Wait before preloading to ensure the user hasn't quickly scrolled past this slot.
+            // This preserves Match Rate by only requesting ads for visible or nearly-visible slots.
+            kotlinx.coroutines.delay(800)
+            if (nativeAd == null) {
+                adsViewModel.preloadNativeAd(adUnitId)
+            }
+        }
+    }
+
+    // Listen for new ads being loaded into the pool
+    LaunchedEffect(adUnitId) {
+        adsViewModel.nativeAdLoadedSignal.collect { loadedId ->
+            if (loadedId == adUnitId && nativeAd == null) {
+                val newAd = adsViewModel.getNativeAd(adUnitId, key)
+                if (newAd != null) {
+                    nativeAd = newAd
+                    isLoading = false
+                    isError = false
+                }
+            }
+        }
+    }
+
+    // Listen for failures to stop shimmer
+    LaunchedEffect(adUnitId) {
+        adsViewModel.nativeAdFailedSignal.collect { failedId ->
+            if (failedId == adUnitId && nativeAd == null) {
+                isLoading = false
+                isError = true
+                onAdFailed?.invoke()
+            }
         }
     }
 
@@ -235,7 +262,7 @@ private fun populateNativeAdView(nativeAd: NativeAd, adView: NativeAdView) {
     if (nativeAd.starRating == null) {
         adView.starRatingView?.visibility = View.GONE
     } else {
-        (adView.starRatingView as? RatingBar)?.rating = nativeAd.starRating!!.toFloat()
+        (adView.starRatingView as? RatingBar)?.rating = nativeAd.starRating?.toFloat() ?: 0f
         adView.starRatingView?.visibility = View.VISIBLE
     }
 

@@ -146,6 +146,13 @@ fun PreviewRoute(
     val isRewardedReady by adsViewModel.isRewardedReady.collectAsStateWithLifecycle()
     var isAdLoading by remember { mutableStateOf(false) }
 
+    // Preload Rewarded Ads for instant availability on click
+    LaunchedEffect(Unit) {
+        adsViewModel.preloadRewardedAd(BuildConfig.ADMOB_REWARDED_DOWNLOAD)
+        adsViewModel.preloadRewardedAd(BuildConfig.ADMOB_REWARDED_SET_WALLPAPER)
+        adsViewModel.preloadRewardedAd(BuildConfig.ADMOB_REWARDED_PREVIEW)
+    }
+
     val pagerState = rememberPagerState(
         initialPage = 0,
         pageCount = { state.items.size },

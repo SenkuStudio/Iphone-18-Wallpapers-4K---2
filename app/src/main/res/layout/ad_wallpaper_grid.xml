@@ -7,21 +7,21 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:orientation="vertical"
-        android:background="#121212"
-        android:padding="4dp">
+        android:background="#1A1A1A"
+        android:padding="6dp">
 
         <RelativeLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="2dp">
+            android:layout_marginBottom="4dp">
 
             <LinearLayout
                 android:id="@+id/ad_attribution_container"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:background="#E50914"
-                android:paddingHorizontal="6dp"
-                android:paddingVertical="1dp"
+                android:paddingHorizontal="8dp"
+                android:paddingVertical="2dp"
                 android:layout_alignParentStart="true"
                 android:layout_centerVertical="true"
                 android:orientation="horizontal">
@@ -29,31 +29,26 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="@string/ad_label"
+                    android:text="Ad"
                     android:textColor="#FFFFFF"
-                    android:textSize="10sp"
+                    android:textSize="11sp"
                     android:textStyle="bold" />
 
                 <View
                     android:layout_width="1dp"
-                    android:layout_height="8dp"
+                    android:layout_height="10dp"
                     android:background="#FFFFFF"
-                    android:layout_marginHorizontal="4dp"
+                    android:layout_marginHorizontal="6dp"
                     android:layout_gravity="center_vertical"/>
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="@string/sponsored_label"
+                    android:text="Sponsored"
                     android:textColor="#FFFFFF"
-                    android:textSize="10sp"
+                    android:textSize="11sp"
                     android:textStyle="bold" />
             </LinearLayout>
-
-            <View
-                android:layout_width="20dp"
-                android:layout_height="20dp"
-                android:layout_alignParentEnd="true" />
         </RelativeLayout>
 
         <com.google.android.gms.ads.nativead.MediaView
@@ -64,23 +59,22 @@
             android:minWidth="120dp"
             android:minHeight="120dp"
             android:layout_gravity="center"
-            android:layout_marginBottom="2dp" />
+            android:layout_marginBottom="4dp" />
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
             android:gravity="center_vertical"
-            android:paddingHorizontal="2dp">
+            android:paddingHorizontal="4dp">
 
             <ImageView
                 android:id="@+id/ad_app_icon"
-                android:layout_width="20dp"
-                android:layout_height="20dp"
-                android:layout_marginEnd="4dp"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:layout_marginEnd="6dp"
                 android:scaleType="centerInside"
-                android:visibility="gone"
-                android:contentDescription="@string/ad_icon_desc" />
+                android:visibility="gone" />
 
             <TextView
                 android:id="@+id/ad_headline"
@@ -88,9 +82,9 @@
                 android:layout_weight="1"
                 android:layout_height="wrap_content"
                 android:ellipsize="end"
-                android:maxLines="1"
+                android:maxLines="2"
                 android:textColor="#FFFFFF"
-                android:textSize="11sp"
+                android:textSize="13sp"
                 android:textStyle="bold" />
         </LinearLayout>
 
@@ -104,15 +98,15 @@
         <Button
             android:id="@+id/ad_call_to_action"
             android:layout_width="match_parent"
-            android:layout_height="28dp"
+            android:layout_height="36dp"
             android:backgroundTint="#E50914"
             android:insetTop="0dp"
             android:insetBottom="0dp"
             android:padding="0dp"
             android:textColor="#FFFFFF"
-            android:textSize="10sp"
+            android:textSize="12sp"
             android:textStyle="bold"
-            android:layout_marginTop="2dp"
+            android:layout_marginTop="4dp"
             android:textAllCaps="true" />
     </LinearLayout>
 </com.google.android.gms.ads.nativead.NativeAdView>

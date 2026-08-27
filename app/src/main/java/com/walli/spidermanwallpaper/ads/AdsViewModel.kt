@@ -19,6 +19,8 @@ class AdsViewModel @Inject constructor(
     private val _isRewardedReady = MutableStateFlow(false)
     val isRewardedReady = _isRewardedReady.asStateFlow()
 
+    val isInitialized = adMobManager.isInitialized
+
     init {
         // Removed adMobManager.warmUp() from here. 
         // It is called in MainActivity after proper SDK initialization and consent.
@@ -101,9 +103,19 @@ class AdsViewModel @Inject constructor(
 
     fun getNativeAd(adUnitId: String, key: String? = null) = adMobManager.getNativeAd(adUnitId, key)
 
+    // Add a state to trigger UI recomposition when ads are loaded or failed
+    val nativeAdLoadedSignal = adMobManager.nativeAdLoadedSignal
+    val nativeAdFailedSignal = adMobManager.nativeAdFailedSignal
+
     fun preloadNativeAd(adUnitId: String) {
         adMobManager.loadNativeAd(adUnitId)
     }
+
+    fun preloadRewardedAd(adUnitId: String) {
+        adMobManager.loadRewarded(adUnitId)
+    }
+
+    fun createAdRequest(collapsible: String? = null) = adMobManager.createAdRequest(collapsible)
 
     fun logNativeAdImpression(adUnitId: String) {
         analyticsManager.logAdImpression(adUnitId, "native")

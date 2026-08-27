@@ -5,6 +5,7 @@ import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import androidx.core.content.FileProvider
+import com.walli.spidermanwallpaper.R
 import com.walli.spidermanwallpaper.util.asSafeFileName
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
@@ -74,7 +75,7 @@ class ShareManager @Inject constructor(
                 putExtra(Intent.EXTRA_TEXT, title)
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             }
-            val chooser = Intent.createChooser(intent, context.getString(com.walli.spidermanwallpaper.R.string.share_wallpaper)).apply {
+            val chooser = Intent.createChooser(intent, context.getString(R.string.share_wallpaper)).apply {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }
             context.startActivity(chooser)

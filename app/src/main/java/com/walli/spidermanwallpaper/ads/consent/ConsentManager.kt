@@ -2,14 +2,23 @@ package com.walli.spidermanwallpaper.ads.consent
 
 import android.app.Activity
 import android.content.Context
+import com.google.android.ump.ConsentDebugSettings
 import com.google.android.ump.ConsentForm
 import com.google.android.ump.ConsentInformation
 import com.google.android.ump.ConsentRequestParameters
 import com.google.android.ump.UserMessagingPlatform
+import com.walli.spidermanwallpaper.BuildConfig
 
 class ConsentManager private constructor(context: Context) {
     private val consentInformation: ConsentInformation =
         UserMessagingPlatform.getConsentInformation(context)
+
+    init {
+        if (BuildConfig.DEBUG) {
+            // Uncomment to reset consent state for testing
+            // consentInformation.reset()
+        }
+    }
 
     /** Interface definition for a callback to be invoked when consent gathering is complete. */
     fun interface OnConsentGatheringCompleteListener {
@@ -43,8 +52,22 @@ class ConsentManager private constructor(context: Context) {
         retryCount: Int,
         onConsentGatheringCompleteListener: OnConsentGatheringCompleteListener
     ) {
+        val debugSettings = if (BuildConfig.DEBUG) {
+            ConsentDebugSettings.Builder(activity)
+                .setDebugGeography(ConsentDebugSettings.DebugGeography.DEBUG_GEOGRAPHY_EEA)
+                .addTestDeviceHashedId("D069094192660527394A79093A7F4978") // Replace with your test device ID from logcat
+                .build()
+        } else {
+            null
+        }
+
         val params = ConsentRequestParameters.Builder()
             .setTagForUnderAgeOfConsent(false)
+            .apply {
+                if (debugSettings != null) {
+                    setConsentDebugSettings(debugSettings)
+                }
+            }
             .build()
 
         // Requesting an update to consent information.
