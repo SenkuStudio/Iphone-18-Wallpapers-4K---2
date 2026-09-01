@@ -43,10 +43,6 @@ class AdsViewModel @Inject constructor(
         adMobManager.maybeShowCategoryInterstitial(activity, onContinue)
     }
 
-    fun maybeShowSetWallpaperInterstitial(activity: Activity?, onContinue: () -> Unit) {
-        adMobManager.maybeShowSetWallpaperInterstitial(activity, onContinue)
-    }
-
     fun showHomeRewarded(
         activity: Activity?,
         onReward: () -> Unit,

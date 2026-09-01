@@ -151,6 +151,7 @@ fun PreviewRoute(
         adsViewModel.preloadRewardedAd(BuildConfig.ADMOB_REWARDED_DOWNLOAD)
         adsViewModel.preloadRewardedAd(BuildConfig.ADMOB_REWARDED_SET_WALLPAPER)
         adsViewModel.preloadRewardedAd(BuildConfig.ADMOB_REWARDED_PREVIEW)
+        adsViewModel.preloadRewardedAd(BuildConfig.ADMOB_REWARDED_PRO_TOOLS)
     }
 
     val pagerState = rememberPagerState(
