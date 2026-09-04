@@ -6,8 +6,14 @@ import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Scaffold
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
+import android.widget.Toast
+import androidx.compose.runtime.*
+import com.walli.spidermanwallpapers.ui.components.ExitRatingDialog
+import androidx.activity.compose.BackHandler
+import android.app.Activity
+import android.content.Intent
+import android.net.Uri
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
@@ -35,6 +41,34 @@ fun SpidermanNavGraph(
     val currentRoute = backStack?.destination?.route
     val showBottomBar = currentRoute != null && bottomBarRoutes.any { 
         currentRoute.startsWith(it.route) 
+    }
+
+    val context = LocalContext.current
+    var showExitDialog by remember { mutableStateOf(false) }
+
+    // Intercept back press when on Home screen to show Exit Dialog
+    BackHandler(enabled = currentRoute == SpidermanRoute.Home.route + "?categoryId={categoryId}") {
+        showExitDialog = true
+    }
+
+    if (showExitDialog) {
+        ExitRatingDialog(
+            onDismiss = { showExitDialog = false },
+            onExit = {
+                showExitDialog = false
+                (context as? Activity)?.finish()
+            },
+            onRate = {
+                showExitDialog = false
+                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/apps/details?id=com.walli.spidermanwallpapers"))
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                try {
+                    context.startActivity(intent)
+                } catch (e: Exception) {
+                    Toast.makeText(context, "Play Store not found", Toast.LENGTH_SHORT).show()
+                }
+            }
+        )
     }
 
     Scaffold(
