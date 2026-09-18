@@ -897,7 +897,16 @@ fun PreviewRoute(
                                         onClick = {
                                             viewModel.requestDownload(actualPage)
                                         },
-                                        modifier = Modifier.size(44.dp),
+                                        modifier = Modifier.size(44.dp)
+                                            .pointerInput(actualPage) {
+                                                detectTapGestures(
+                                                    onPress = {
+                                                        if (item.isPremium && !item.isUnlocked && !state.isPremiumPassActive) {
+                                                            adsViewModel.preloadRewardedAd(BuildConfig.ADMOB_REWARDED_DOWNLOAD)
+                                                        }
+                                                    }
+                                                )
+                                            },
                                         contentPadding = PaddingValues(0.dp),
                                         colors = androidx.compose.material3.ButtonDefaults.filledTonalButtonColors(
                                             containerColor = onDominantColor.copy(alpha = 0.15f),
@@ -927,7 +936,16 @@ fun PreviewRoute(
                                                 showSetSheet = true
                                             }
                                         },
-                                        modifier = Modifier.size(44.dp),
+                                        modifier = Modifier.size(44.dp)
+                                            .pointerInput(actualPage) {
+                                                detectTapGestures(
+                                                    onPress = {
+                                                        if (item.isPremium && !item.isUnlocked && !state.isPremiumPassActive) {
+                                                            adsViewModel.preloadRewardedAd(BuildConfig.ADMOB_REWARDED_SET_WALLPAPER)
+                                                        }
+                                                    }
+                                                )
+                                            },
                                         contentPadding = PaddingValues(0.dp),
                                         colors = androidx.compose.material3.ButtonDefaults.filledTonalButtonColors(
                                             containerColor = onDominantColor.copy(alpha = 0.15f),
@@ -980,7 +998,16 @@ fun PreviewRoute(
                                     }
                                     FilledIconButton(
                                         onClick = { viewModel.setEditMode(!state.isEditMode) },
-                                        modifier = Modifier.size(44.dp),
+                                        modifier = Modifier.size(44.dp)
+                                            .pointerInput(Unit) {
+                                                detectTapGestures(
+                                                    onPress = {
+                                                        if (!state.areEditToolsUnlocked) {
+                                                            adsViewModel.preloadRewardedAd(BuildConfig.ADMOB_REWARDED_PRO_TOOLS)
+                                                        }
+                                                    }
+                                                )
+                                            },
                                         colors = IconButtonDefaults.filledIconButtonColors(
                                             containerColor = if (state.isEditMode) onDominantColor else onDominantColor.copy(alpha = 0.15f),
                                             contentColor = if (state.isEditMode) animatedDominantColor else onDominantColor
@@ -1301,6 +1328,14 @@ fun PreviewRoute(
             },
             onUnlock = {
                 isAdLoading = true
+            },
+            onPress = {
+                val adUnitId = when (state.pendingAction) {
+                    PendingAction.DOWNLOAD -> BuildConfig.ADMOB_REWARDED_DOWNLOAD
+                    PendingAction.SET_WALLPAPER -> BuildConfig.ADMOB_REWARDED_SET_WALLPAPER
+                    else -> BuildConfig.ADMOB_REWARDED_PREVIEW
+                }
+                adsViewModel.preloadRewardedAd(adUnitId)
             }
         )
     }

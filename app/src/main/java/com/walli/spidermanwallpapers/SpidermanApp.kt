@@ -31,6 +31,11 @@ class SpidermanApp : Application(), SingletonImageLoader.Factory, Configuration.
     override fun onCreate() {
         super.onCreate()
         registerActivityLifecycleCallbacks(adMobManager)
+        
+        // Initialize Mobile Ads SDK as early as possible.
+        // We no longer call warmUp() here to ensure GDPR compliance; 
+        // warmUp() is now called in MainActivity after consent is handled.
+        MobileAds.initialize(this) {}
     }
 
     override val workManagerConfiguration: Configuration

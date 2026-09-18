@@ -20,7 +20,6 @@ import com.walli.spidermanwallpapers.ui.navigation.SpidermanRoute
 import com.walli.spidermanwallpapers.ui.theme.SpidermanTheme
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
-import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -32,7 +31,6 @@ class MainActivity : ComponentActivity() {
     lateinit var adMobManager: AdMobManager
 
     private lateinit var consentManager: ConsentManager
-    private val isMobileAdsInitializeCalled = AtomicBoolean(false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
@@ -75,31 +73,12 @@ class MainActivity : ComponentActivity() {
         consentManager = ConsentManager.getInstance(this)
         consentManager.gatherConsent(this) { error ->
             if (error != null) {
-                // Consent not obtained in under certain circumstances.
-                // Log the error.
+                // Consent not obtained
             }
-
+            
             if (consentManager.canRequestAds()) {
-                initializeMobileAdsSdk()
+                adMobManager.warmUp()
             }
-        }
-
-        // This method can be called even if the user hasn't given consent,
-        // but it will only initialize the SDK if consent is already available.
-        if (consentManager.canRequestAds()) {
-            initializeMobileAdsSdk()
-        }
-    }
-
-    private fun initializeMobileAdsSdk() {
-        if (isMobileAdsInitializeCalled.getAndSet(true)) {
-            return
-        }
-
-        // Initialize the Google Mobile Ads SDK.
-        MobileAds.initialize(this) {
-            // Mobile Ads initialized, warm up ads
-            adMobManager.warmUp()
         }
     }
 }

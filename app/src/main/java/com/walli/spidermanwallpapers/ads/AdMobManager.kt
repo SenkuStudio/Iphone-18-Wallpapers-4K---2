@@ -116,26 +116,47 @@ class AdMobManager @Inject constructor(
     fun warmUp() {
         if (_isInitialized.value) return
         _isInitialized.value = true
-        Log.d(TAG, "AdMob Manager Initialized. Warming up essential ads.")
+        Log.d(TAG, "AdMob Manager Initialized. Prioritizing Rewarded and Home ads.")
+        
+        // Priority 1: App Open (Highest)
         loadAppOpenAd()
         
-        // Preload all critical native ad units
-        loadNativeAd(BuildConfig.ADMOB_NATIVE_HOME)
-        loadNativeAd(BuildConfig.ADMOB_NATIVE_CATEGORIES)
-        loadNativeAd(BuildConfig.ADMOB_NATIVE_WALLPAPERS)
-        loadNativeAd(BuildConfig.ADMOB_NATIVE_PREVIEW)
-
-        // Preload all interstitial units
-        loadInterstitial(BuildConfig.ADMOB_INTERSTITIAL_HOME) { homeInterstitialAd = it }
-        loadInterstitial(BuildConfig.ADMOB_INTERSTITIAL_CATEGORY) { categoryInterstitialAd = it }
-
-        // Preload ALL rewarded ad units
+        // Priority 2: Critical Rewarded Ads (Home & Preview are most likely first uses)
         loadRewarded(BuildConfig.ADMOB_REWARDED_HOME)
-        loadRewarded(BuildConfig.ADMOB_REWARDED_CATEGORY)
-        loadRewarded(BuildConfig.ADMOB_REWARDED_DOWNLOAD)
-        loadRewarded(BuildConfig.ADMOB_REWARDED_SET_WALLPAPER)
-        loadRewarded(BuildConfig.ADMOB_REWARDED_PREVIEW)
-        loadRewarded(BuildConfig.ADMOB_REWARDED_PRO_TOOLS)
+        
+        // Priority 3: Home Native (First screen visibility)
+        android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+            if (isAppInForeground) {
+                loadNativeAd(BuildConfig.ADMOB_NATIVE_HOME)
+                loadRewarded(BuildConfig.ADMOB_REWARDED_PREVIEW)
+            }
+        }, 1500)
+
+        // Priority 4: Staggered background loading for the rest
+        android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+            if (isAppInForeground) {
+                // Interstitials
+                loadInterstitial(BuildConfig.ADMOB_INTERSTITIAL_HOME) { homeInterstitialAd = it }
+                loadInterstitial(BuildConfig.ADMOB_INTERSTITIAL_CATEGORY) { categoryInterstitialAd = it }
+                
+                // Secondary Rewarded
+                loadRewarded(BuildConfig.ADMOB_REWARDED_CATEGORY)
+                loadRewarded(BuildConfig.ADMOB_REWARDED_DOWNLOAD)
+            }
+        }, 4000)
+
+        android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+            if (isAppInForeground) {
+                // Remaining Rewarded
+                loadRewarded(BuildConfig.ADMOB_REWARDED_SET_WALLPAPER)
+                loadRewarded(BuildConfig.ADMOB_REWARDED_PRO_TOOLS)
+                
+                // Remaining Native
+                loadNativeAd(BuildConfig.ADMOB_NATIVE_CATEGORIES)
+                loadNativeAd(BuildConfig.ADMOB_NATIVE_WALLPAPERS)
+                loadNativeAd(BuildConfig.ADMOB_NATIVE_PREVIEW)
+            }
+        }, 7000)
     }
 
     private fun loadAllAds() {

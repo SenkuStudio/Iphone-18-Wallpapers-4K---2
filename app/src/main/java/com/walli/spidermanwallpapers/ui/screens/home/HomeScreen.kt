@@ -209,6 +209,11 @@ fun HomeRoute(
             onSortSelected = viewModel::changeSort,
             onCategorySelected = viewModel::selectCategory,
             onWallpaperClick = onWallpaperClick,
+            onWallpaperPress = { wallpaper ->
+                if (wallpaper.isPremium && !state.unlockedIds.contains(wallpaper.id) && !state.isPremiumPassActive) {
+                    adsViewModel.preloadRewardedAd(BuildConfig.ADMOB_REWARDED_HOME)
+                }
+            },
             onMenuClick = { scope.launch { drawerState.open() } }
         )
     }
@@ -243,6 +248,7 @@ private fun HomeScreen(
     onSortSelected: (WallpaperSort) -> Unit,
     onCategorySelected: (com.walli.spidermanwallpapers.domain.model.WallpaperCategory) -> Unit,
     onWallpaperClick: (com.walli.spidermanwallpapers.domain.model.Wallpaper) -> Unit,
+    onWallpaperPress: (com.walli.spidermanwallpapers.domain.model.Wallpaper) -> Unit,
     onMenuClick: () -> Unit,
 ) {
     val gridState = rememberLazyGridState()
@@ -311,6 +317,7 @@ private fun HomeScreen(
                                         wallpaper = featuredWallpaper,
                                         isFavorite = state.favoriteIds.contains(featuredWallpaper.id),
                                         isUnlocked = state.unlockedIds.contains(featuredWallpaper.id) || state.isPremiumPassActive,
+                                        onPress = { onWallpaperPress(featuredWallpaper) },
                                         onClick = { onWallpaperClick(featuredWallpaper) },
                                         sharedTransitionScope = sharedTransitionScope,
                                         animatedVisibilityScope = animatedVisibilityScope
@@ -340,6 +347,7 @@ private fun HomeScreen(
                                                         wallpaper = wallpaper,
                                                         isFavorite = state.favoriteIds.contains(wallpaper.id),
                                                         isUnlocked = state.unlockedIds.contains(wallpaper.id) || state.isPremiumPassActive,
+                                                        onPress = { onWallpaperPress(wallpaper) },
                                                         onClick = { onWallpaperClick(wallpaper) },
                                                         sharedTransitionScope = sharedTransitionScope,
                                                         animatedVisibilityScope = animatedVisibilityScope
@@ -434,6 +442,7 @@ private fun HomeScreen(
                                                 wallpaper = wallpaper,
                                                 isFavorite = state.favoriteIds.contains(wallpaper.id),
                                                 isUnlocked = state.unlockedIds.contains(wallpaper.id) || state.isPremiumPassActive,
+                                                onPress = { onWallpaperPress(wallpaper) },
                                                 onClick = { onWallpaperClick(wallpaper) },
                                                 sharedTransitionScope = sharedTransitionScope,
                                                 animatedVisibilityScope = animatedVisibilityScope

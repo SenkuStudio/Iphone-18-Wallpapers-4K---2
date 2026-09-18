@@ -1,5 +1,6 @@
 package com.walli.spidermanwallpapers.ui.components
 
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -15,6 +16,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
 import com.walli.spidermanwallpapers.domain.model.Wallpaper
 
@@ -27,6 +29,7 @@ fun UnlockPremiumDialog(
     isLoading: Boolean = false,
     onDismiss: () -> Unit,
     onUnlock: () -> Unit,
+    onPress: () -> Unit = {},
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -58,7 +61,13 @@ fun UnlockPremiumDialog(
                 Button(
                     onClick = onUnlock,
                     enabled = !isLoading,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .pointerInput(Unit) {
+                            detectTapGestures(
+                                onPress = { onPress() }
+                            )
+                        }
                 ) {
                     if (isLoading) {
                         CircularProgressIndicator(

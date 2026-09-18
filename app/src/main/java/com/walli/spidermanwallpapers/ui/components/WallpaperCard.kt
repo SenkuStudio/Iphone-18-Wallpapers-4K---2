@@ -59,6 +59,9 @@ import androidx.compose.runtime.LaunchedEffect
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.ui.input.pointer.pointerInput
 import com.walli.spidermanwallpapers.domain.model.Wallpaper
 import com.walli.spidermanwallpapers.util.blurhash.BlurhashDecoder
 
@@ -71,6 +74,7 @@ fun WallpaperCard(
     modifier: Modifier = Modifier,
     sharedTransitionScope: SharedTransitionScope? = null,
     animatedVisibilityScope: AnimatedVisibilityScope? = null,
+    onPress: (() -> Unit)? = null,
     onClick: () -> Unit,
 ) {
     var placeholder by remember(wallpaper.blurHash) { 
@@ -90,6 +94,12 @@ fun WallpaperCard(
         modifier = modifier
             .fillMaxWidth()
             .aspectRatio(0.68f)
+            .pointerInput(wallpaper.id) {
+                awaitEachGesture {
+                    awaitFirstDown(requireUnconsumed = false)
+                    onPress?.invoke()
+                }
+            }
             .shadow(
                 elevation = 8.dp,
                 shape = RoundedCornerShape(24.dp),
