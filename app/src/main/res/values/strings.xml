@@ -1,8 +1,8 @@
 <resources>
-    <string name="app_name">Spider Hero Wallpapers 4K</string>
-    <string name="admob_app_id">ca-app-pub-6979979912689100~2531817614</string>
-    <string name="share_wallpaper">Share wallpaper</string>
-    <string name="ad_icon_desc">Ad Icon</string>
-    <string name="ad_label">Ad</string>
-    <string name="sponsored_label">Sponsored</string>
+    <string name="app_name">Heroic Walls 4K: Ultra HD</string>
+    <string name="admob_app_id">ca-app-pub-6979979912689100~3029674317</string>
+    <string name="share_wallpaper">Share with friends</string>
+    <string name="ad_icon_desc">Sponsored Icon</string>
+    <string name="ad_label">Premium</string>
+    <string name="sponsored_label">Feature</string>
 </resources>

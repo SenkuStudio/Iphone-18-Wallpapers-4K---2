@@ -37,7 +37,7 @@
     </queries>
 
     <application
-        android:name=".SpidermanApp"
+        android:name=".HeroicWallsApp"
         android:allowBackup="false"
         android:fullBackupContent="false"
         android:icon="@drawable/logoappspiderman"
@@ -69,7 +69,8 @@
             android:name="androidx.startup.InitializationProvider"
             android:authorities="${applicationId}.androidx-startup"
             android:exported="false"
-            tools:node="merge">
+            tools:node="merge"
+            tools:replace="android:authorities">
             <meta-data
                 android:name="androidx.work.WorkManagerInitializer"
                 android:value="androidx.startup"
