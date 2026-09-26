@@ -6,7 +6,7 @@
     </style>
 
     <style name="Theme.Wallpaper.Splash" parent="Theme.SplashScreen">
-        <item name="windowSplashScreenAnimatedIcon">@drawable/logoappspiderman</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/logoapp</item>
         <item name="windowSplashScreenBackground">@color/spiderman_splash_icon_bg</item>
         <item name="postSplashScreenTheme">@style/Theme.Wallpaper</item>
     </style>

@@ -8,11 +8,11 @@ plugins {
 }
 
 android {
-    namespace = "com.walli.spidermanwallpaperss"
+    namespace = "com.walli.superheros"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.walli.spidermanwallpaperss"
+        applicationId = "com.walli.superheros"
         minSdk = 24
         targetSdk = 36
         versionCode = 3
