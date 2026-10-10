@@ -15,5 +15,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "HeroicWalls"
+rootProject.name = "Iphone 18"
 include(":app")

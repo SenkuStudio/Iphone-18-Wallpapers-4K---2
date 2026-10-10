@@ -1,4 +1,4 @@
--keep class com.walli.superheros.data.api.model.** { *; }
+-keep class com.walli.iphonewallpaper.data.api.model.** { *; }
 -keepclassmembers class * {
     @com.google.gson.annotations.SerializedName <fields>;
 }
