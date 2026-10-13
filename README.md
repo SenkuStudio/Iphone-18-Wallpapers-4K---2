@@ -179,7 +179,7 @@ npm run deploy
 In `app/build.gradle.kts`:
 
 ```kotlin
-buildConfigField("String", "BASE_URL", ""https://walli-api.your-subdomain.workers.dev/"")
+buildConfigField("String", "BASE_URL", "\"https://walli-api.your-subdomain.workers.dev/\"")
 ```
 
 Sync Gradle and run the app.

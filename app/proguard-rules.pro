@@ -1,7 +1,21 @@
--keep class com.walli.iphonewallpaper.data.api.model.** { *; }
+# General Android & App Stability
+-keepattributes SourceFile, LineNumberTable
+-keepattributes Signature, InnerClasses, EnclosingMethod, *Annotation*
+
+# API & Data Models
+-keep class com.walli.iphonewallpapers.data.api.model.** { *; }
 -keepclassmembers class * {
     @com.google.gson.annotations.SerializedName <fields>;
 }
+
+# Hilt/Dagger
+-keep class kotlin.reflect.jvm.internal.** { *; }
+-keep class dagger.hilt.android.internal.** { *; }
+
+# OkHttp & Retrofit
+-dontwarn okhttp3.**
+-dontwarn okio.**
+-dontwarn retrofit2.**
 -dontwarn org.conscrypt.**
 
 # Google Mobile Ads SDK
@@ -14,7 +28,7 @@
   public *;
 }
 
-# For Mediation (if any, safe to include)
+# For Mediation
 -keep class com.google.ads.mediation.** {
   public *;
 }

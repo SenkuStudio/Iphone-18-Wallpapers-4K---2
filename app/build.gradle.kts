@@ -8,15 +8,15 @@ plugins {
 }
 
 android {
-    namespace = "com.walli.iphonewallpaper"
+    namespace = "com.walli.iphonewallpapers"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.walli.iphonewallpaper"
+        applicationId = "com.walli.iphonewallpapers"
         minSdk = 24
         targetSdk = 36
-        versionCode = 4
-        versionName = "4.0.0"
+        versionCode = 5
+        versionName = "5.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = true

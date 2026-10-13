@@ -37,7 +37,7 @@
     </queries>
 
     <application
-        android:name="com.walli.iphonewallpaper.DarkAestheticWallsApp"
+        android:name="com.walli.iphonewallpapers.DarkAestheticWallsApp"
         android:allowBackup="false"
         android:fullBackupContent="false"
         android:icon="@drawable/logoapp1"
@@ -56,7 +56,7 @@
             android:value="true"/>
 
         <activity
-            android:name="com.walli.iphonewallpaper.MainActivity"
+            android:name="com.walli.iphonewallpapers.MainActivity"
             android:exported="true"
             android:theme="@style/Theme.Wallpaper.Splash">
             <intent-filter>

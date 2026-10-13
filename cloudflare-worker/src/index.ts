@@ -46,7 +46,7 @@ const normalizeSort = (sort: string | null): string => {
       return "trending_score DESC, downloads DESC, created_at DESC";
     case "latest":
     default:
-      return "created_at DESC";
+      return "category ASC, created_at DESC";
   }
 };
 
